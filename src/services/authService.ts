@@ -52,7 +52,7 @@ export const AuthService = {
             if (!response.ok) {
                 const err = await response.json();
                 console.error('Login failed:', err.message);
-                return null;
+                throw new Error(err.message || '로그인에 실패했습니다.');
             }
 
             const data = await response.json();
@@ -65,14 +65,14 @@ export const AuthService = {
             return null;
         } catch (error) {
             console.error('Login error:', error);
-            return null;
+            throw error;
         }
     },
 
     // Logout
     logout: () => {
         localStorage.removeItem(STORAGE_KEY_SESSION);
-        window.location.href = '/login';
+        window.location.href = '/';
     },
 
     // Register

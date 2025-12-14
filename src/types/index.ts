@@ -90,4 +90,5 @@ export interface Inquiry {
     createdAt: string;
     answer?: string; // Admin reply
     answeredAt?: string;
+    userEmail?: string;
 }

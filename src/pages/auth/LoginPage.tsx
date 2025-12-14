@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+
 import { Layers, Box, Cpu, ArrowRight, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/authService';
@@ -21,12 +21,10 @@ export const LoginPage = () => {
                 } else {
                     navigate('/student/dashboard');
                 }
-            } else {
-                alert('이메일 또는 비밀번호를 확인해주세요.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Login error:', error);
-            alert('로그인 중 오류가 발생했습니다.');
+            alert(error.message || '로그인 중 오류가 발생했습니다.');
         }
     };
 
@@ -45,51 +43,57 @@ export const LoginPage = () => {
 
                 {/* Left Side - Brand Visuals */}
                 <div style={{
-                    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                    background: 'linear-gradient(135deg, #020617 0%, #0f172a 100%)',
                     position: 'relative',
                     padding: '4rem',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
+                    alignItems: 'center',
+                    textAlign: 'center',
                     color: 'white'
                 }}>
                     {/* Decorative Circles/Glow */}
                     <div style={{
                         position: 'absolute', top: '-10%', left: '-10%', width: '300px', height: '300px',
-                        background: 'var(--primary-600)', filter: 'blur(100px)', opacity: 0.3, zIndex: 0
+                        background: 'var(--primary-600)', filter: 'blur(100px)', opacity: 0.2, zIndex: 0
                     }} />
                     <div style={{
                         position: 'absolute', bottom: '-10%', right: '-10%', width: '300px', height: '300px',
-                        background: 'var(--accent-500)', filter: 'blur(100px)', opacity: 0.2, zIndex: 0
+                        background: 'var(--accent-500)', filter: 'blur(100px)', opacity: 0.1, zIndex: 0
                     }} />
 
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.8 }}
-                        >
-                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '3rem' }}>
-                                <FeatureIcon icon={<Box size={32} />} color="var(--accent-500)" label="3D Modeling" />
-                                <FeatureIcon icon={<Layers size={32} />} color="#8b5cf6" label="Slicing" />
-                                <FeatureIcon icon={<Cpu size={32} />} color="#10b981" label="Printing" />
-                            </div>
+                    <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
 
-                            <h1 style={{ fontSize: '3rem', lineHeight: 1.1, marginBottom: '1.5rem', color: 'white' }}>
-                                Start Your <br />
-                                <span style={{ color: 'var(--primary-500)' }}>3D Future</span> Today
+                        <div style={{ marginTop: 'auto', marginBottom: '2rem' }}>
+                            <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '60px', marginBottom: '2rem', filter: 'brightness(0) invert(1)' }} />
+
+                            <h1 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.3, marginBottom: '3rem', color: 'white' }}>
+                                WOW3D CBT(문제은행)<br />
+                                서비스
                             </h1>
 
-                            <p style={{ fontSize: '1.1rem', color: 'var(--slate-300)', maxWidth: '400px', marginBottom: '2rem' }}>
-                                와우쓰리디홍대센터 공식 문제은행 서비스.
-                                자격증 합격을 위한 스마트한 학습 파트너.
-                            </p>
-
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white', opacity: 1 }}></span>
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white', opacity: 0.3 }}></span>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                padding: '1.5rem',
+                                borderRadius: '1rem',
+                                fontSize: '0.9rem',
+                                color: 'var(--slate-400)',
+                                lineHeight: 1.6,
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                marginBottom: '2rem'
+                            }}>
+                                <p style={{ marginBottom: '0.5rem' }}>&copy; 2025 WOW3D Education Center. All rights reserved.</p>
+                                <p>본 CBT(Computer Based Test) 문제은행 플랫폼은 와우쓰리디 홍대센터의 지적 재산입니다. 무단 전재 및 재배포를 금지합니다.</p>
+                                <p style={{ color: 'var(--primary-400)', marginTop: '0.5rem', fontWeight: 600 }}>자격증 합격을 위한 스마트한 학습 파트너.</p>
                             </div>
-                        </motion.div>
+                        </div>
+
+                        <div style={{ marginTop: 'auto', display: 'flex', gap: '1.5rem' }}>
+                            <FeatureIcon icon={<Box size={24} />} color="#f59e0b" label="3D Modeling" />
+                            <FeatureIcon icon={<Layers size={24} />} color="#8b5cf6" label="Slicing" />
+                            <FeatureIcon icon={<Cpu size={24} />} color="#10b981" label="Printing" />
+                        </div>
                     </div>
                 </div>
 
@@ -103,11 +107,11 @@ export const LoginPage = () => {
                     <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
                         <div style={{ marginBottom: '2.5rem' }}>
                             <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>환영합니다! 👋</h2>
-                            <p style={{ color: 'var(--text-muted)' }}>계정이 없으신가요? <span onClick={() => navigate('/register')} style={{ color: 'var(--primary-600)', fontWeight: 600, cursor: 'pointer' }}>회원가입</span></p>
+                            <p style={{ color: 'var(--text-muted)' }}>계정이 없으신가요? <span onClick={() => navigate('/register')} style={{ color: 'var(--primary-600)', fontWeight: 600, cursor: 'pointer' }}>회원가입 하기</span></p>
                         </div>
 
-                        {/* Role Switcher (Optional, nice touch) */}
-                        <div style={{ background: 'var(--slate-100)', padding: '0.25rem', borderRadius: '0.5rem', display: 'flex', marginBottom: '2rem' }}>
+                        {/* Role Switcher */}
+                        <div style={{ background: 'var(--slate-50)', padding: '0.25rem', borderRadius: '0.5rem', display: 'flex', marginBottom: '2rem', border: '1px solid var(--slate-100)' }}>
                             <RoleButton active={role === 'student'} onClick={() => setRole('student')}>수강생</RoleButton>
                             <RoleButton active={role === 'admin'} onClick={() => setRole('admin')}>관리자</RoleButton>
                         </div>
@@ -136,7 +140,7 @@ export const LoginPage = () => {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         className="input-field"
-                                        placeholder="Enter your password"
+                                        placeholder="Use '1234' for test"
                                         style={{ paddingLeft: '3rem', paddingRight: '3rem' }}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -157,7 +161,7 @@ export const LoginPage = () => {
                                     <input type="checkbox" style={{ accentColor: 'var(--primary-600)' }} />
                                     로그인 상태 유지
                                 </label>
-                                <a href="#" style={{ fontSize: '0.875rem', color: 'var(--primary-600)', fontWeight: 500 }}>비밀번호 찾기</a>
+                                <a href="#" style={{ fontSize: '0.875rem', color: 'var(--primary-600)', fontWeight: 600 }}>아이디/비밀번호 찾기</a>
                             </div>
 
                             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
@@ -179,13 +183,18 @@ export const LoginPage = () => {
 
 const FeatureIcon = ({ icon, color, label }: { icon: React.ReactNode, color: string, label: string }) => (
     <div style={{
-        width: '80px', height: '80px', borderRadius: '50%',
-        background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        border: `1px solid ${color}`
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem'
     }}>
-        <div style={{ color: color, marginBottom: '0.25rem' }}>{icon}</div>
-        <span style={{ fontSize: '0.7rem', color: 'white', opacity: 0.8 }}>{label}</span>
+        <div style={{
+            width: '60px', height: '60px', borderRadius: '50%',
+            background: 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px solid ${color}`,
+            color: color
+        }}>
+            {icon}
+        </div>
+        <span style={{ fontSize: '0.8rem', color: 'var(--slate-300)', fontWeight: 500 }}>{label}</span>
     </div>
 );
 
@@ -197,12 +206,13 @@ const RoleButton = ({ active, children, onClick }: { active: boolean, children: 
             flex: 1,
             padding: '0.5rem',
             borderRadius: '0.375rem',
-            fontSize: '0.875rem',
+            fontSize: '0.9rem',
             fontWeight: 500,
             background: active ? 'white' : 'transparent',
-            color: active ? 'var(--slate-900)' : 'var(--slate-500)',
-            boxShadow: active ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : 'none',
-            transition: 'all 0.2s'
+            color: active ? 'var(--slate-900)' : 'var(--slate-400)',
+            boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            transition: 'all 0.2s',
+            border: active ? '1px solid var(--slate-200)' : '1px solid transparent'
         }}
     >
         {children}

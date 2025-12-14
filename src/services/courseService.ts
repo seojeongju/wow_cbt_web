@@ -45,6 +45,20 @@ export const CourseService = {
         }
     },
 
+    requestEnrollment: async (userId: string, courseId: string): Promise<{ success: boolean; message: string }> => {
+        try {
+            const response = await fetch('/api/enrollments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, courseId })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('requestEnrollment error:', error);
+            return { success: false, message: '수강 신청 중 오류가 발생했습니다.' };
+        }
+    },
+
     // Legacy support or helper if needed (but currently we want strict objects)
     saveCourses: () => { console.warn('saveCourses is deprecated in D1 mode'); }
 };

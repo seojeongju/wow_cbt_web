@@ -60,12 +60,12 @@ export async function onRequestPost(context) {
             'UPDATE users SET last_login_at = datetime("now") WHERE id = ?'
         ).bind(user.id).run();
 
-        // Get user's course enrollments
+        // Get user's course enrollments (active)
         const { results: enrollments } = await env.DB.prepare(`
             SELECT ce.*, c.name as course_name 
             FROM course_enrollments ce
             JOIN courses c ON ce.course_id = c.id
-            WHERE ce.user_id = ? AND ce.status = 'approved'
+            WHERE ce.user_id = ? AND ce.status = 'active'
         `).bind(user.id).all();
 
         // Get user's pending courses
@@ -87,9 +87,10 @@ export async function onRequestPost(context) {
             courseEnrollments: enrollments.map(e => ({
                 courseId: e.course_id,
                 courseName: e.course_name,
-                status: e.status
+                status: e.status,
+                expiresAt: e.expires_at
             })),
-            pendingCourses: pending.map(p => p.course_id)
+            pendingCourses: pending.map(p => p.course_name)
         };
 
         return new Response(JSON.stringify({

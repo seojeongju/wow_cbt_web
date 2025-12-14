@@ -265,9 +265,16 @@ export const QuestionManagement = () => {
             return;
         }
 
+        // Resolve Course ID from Name
+        const courseObj = fullCourses.find((c: any) => c.name === selectedCourse);
+        if (!courseObj) {
+            alert('과정 정보를 찾을 수 없습니다.');
+            return;
+        }
+
         const result = await ExamService.createExam({
             title: newExamData.title,
-            courseName: selectedCourse,
+            courseName: courseObj.id, // Pass ID here, as ExamService maps this to courseId
             timeLimit: newExamData.timeLimit
         });
 

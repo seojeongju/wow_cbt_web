@@ -207,6 +207,7 @@ export const ExamPlayer = () => {
                     answers={answers}
                     current={currentIdx}
                     onJump={setCurrentIdx}
+                    questionIds={exam.questions.map(q => q.id)}
                 />
 
             </main>

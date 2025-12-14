@@ -35,7 +35,7 @@ export async function onRequestGet(context) {
                 status: e.status
             };
 
-            if (e.status === 'approved') {
+            if (e.status === 'active') {
                 enrollmentsByUser[e.user_id].approved.push(enrollment);
             } else if (e.status === 'pending') {
                 enrollmentsByUser[e.user_id].pending.push(enrollment);
@@ -47,7 +47,7 @@ export async function onRequestGet(context) {
             ...u,
             approved: Boolean(u.approved),
             courseEnrollments: enrollmentsByUser[u.id]?.approved || [],
-            pendingCourses: enrollmentsByUser[u.id]?.pending.map(p => p.courseId) || []
+            pendingCourses: enrollmentsByUser[u.id]?.pending.map(p => p.courseName) || []
         }));
 
         return new Response(JSON.stringify({

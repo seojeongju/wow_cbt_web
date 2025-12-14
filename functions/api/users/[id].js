@@ -127,7 +127,7 @@ export async function onRequestPost(context) {
     const userId = params.id;
 
     try {
-        const { courseId, status } = await request.json(); // status: 'approved' or 'rejected'
+        const { courseId, status, durationMonths } = await request.json(); // status: 'approved' or 'rejected'
 
         if (!courseId || !status) {
             return new Response(JSON.stringify({
@@ -139,12 +139,44 @@ export async function onRequestPost(context) {
             });
         }
 
+        // Convert 'approved' to 'active' for consistency
+        const dbStatus = status === 'approved' ? 'active' : 'rejected';
+
+        // Resolve courseId: if it doesn't start with 'course_', treat it as course name and look up
+        let actualCourseId = courseId;
+        if (!courseId.startsWith('course_')) {
+            // Look up course ID by name
+            const { results: courses } = await env.DB.prepare(
+                'SELECT id FROM courses WHERE name = ?'
+            ).bind(courseId).all();
+
+            if (courses.length > 0) {
+                actualCourseId = courses[0].id;
+            }
+        }
+
+        // Calculate expires_at if durationMonths provided
+        let expiresAt = null;
+        if (dbStatus === 'active' && durationMonths) {
+            const expireDate = new Date();
+            expireDate.setMonth(expireDate.getMonth() + durationMonths);
+            expiresAt = expireDate.toISOString();
+        }
+
         // Update enrollment status
-        await env.DB.prepare(`
-            UPDATE course_enrollments 
-            SET status = ? 
-            WHERE user_id = ? AND course_id = ?
-        `).bind(status, userId, courseId).run();
+        if (expiresAt) {
+            await env.DB.prepare(`
+                UPDATE course_enrollments 
+                SET status = ?, expires_at = ?
+                WHERE user_id = ? AND course_id = ?
+            `).bind(dbStatus, expiresAt, userId, actualCourseId).run();
+        } else {
+            await env.DB.prepare(`
+                UPDATE course_enrollments 
+                SET status = ? 
+                WHERE user_id = ? AND course_id = ?
+            `).bind(dbStatus, userId, actualCourseId).run();
+        }
 
         return new Response(JSON.stringify({
             success: true,

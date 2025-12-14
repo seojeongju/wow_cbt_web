@@ -43,6 +43,7 @@ export const StudentSupportPage = () => {
             await SupportService.createInquiry({
                 userId: user.id,
                 userName: user.name,
+                userEmail: user.email,
                 category,
                 title,
                 content

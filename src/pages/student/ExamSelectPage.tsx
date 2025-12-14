@@ -4,68 +4,81 @@ import { ChevronLeft, FileText, Clock, AlertCircle } from 'lucide-react';
 import { MainLayout } from '../../layouts/MainLayout';
 import { ExamService } from '../../services/examService';
 import { AuthService } from '../../services/authService';
-import { Exam } from '../../types';
+import { Exam, User } from '../../types';
 
 export const ExamSelectPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
-    const user = AuthService.getCurrentUser();
+    const [error, setError] = useState<string | null>(null);
+    const [user, setUser] = useState<User | null>(null);
 
-    // ⭐️ URL에서 과정명 가져오기
+    // URL에서 과정명 가져오기
     const courseFilter = searchParams.get('course');
 
     useEffect(() => {
-        loadExams();
-    }, [courseFilter]);
+        const currentUser = AuthService.getCurrentUser();
+        if (!currentUser) {
+            navigate('/login');
+            return;
+        }
+        setUser(currentUser);
+    }, [navigate]);
+
+    useEffect(() => {
+        if (user) {
+            loadExams();
+        }
+    }, [courseFilter, user]);
 
     const loadExams = async () => {
-        // Fetch exams filtered by course if filter parameter exists
-        // If courseFilter is present, we pass course NAME? But API expects ID.
-        // We have a mismatch: frontend uses Names, backend uses IDs mostly but sometimes names in older code?
-        // Let's rely on ExamService.getExamList() which fetches ALL or mock. 
-        // Wait, getExamList implementation might be mocked or partial.
+        try {
+            setLoading(true);
+            setError(null);
 
-        // Let's use getExamsByCourse if filter exists, else get all.
-        // But we need to filter by ACTIVE courses the user is enrolled in.
+            console.log('🔍 Loading exams...');
 
-        let allExams: Exam[] = [];
+            // Fetch all exams
+            const allExams = await ExamService.getExamList();
+            console.log('📚 All exams fetched:', allExams.length);
 
-        // Fetch ALL exams first (inefficient but safe for now)
-        // Or fetch for each active course.
+            if (!user) {
+                setExams([]);
+                return;
+            }
 
-        // Get active courses from User
-        const activeCourseNames = (user?.courseEnrollments || [])
-            .filter(enrollment => {
-                if (enrollment.status === 'expired') return false;
-                if (enrollment.expiresAt && new Date(enrollment.expiresAt) < new Date()) return false;
-                return true;
-            })
-            .map(e => e.courseName);
+            // Get active course names
+            const activeCourseNames = (user.courseEnrollments || [])
+                .filter(enrollment => {
+                    if (enrollment.status === 'expired') return false;
+                    if (enrollment.expiresAt && new Date(enrollment.expiresAt) < new Date()) return false;
+                    return enrollment.status === 'active';
+                })
+                .map(e => e.courseName);
 
-        // If we have courseFilter and it is NOT in active courses (and user is not admin), maybe block?
-        // But for now just filter.
+            console.log('✅ Active courses:', activeCourseNames);
 
-        // We need to fetch exams for all active courses.
-        // We don't have a "get all exams" endpoint, only get by course?
-        // Actually ExamService.getExamList calls `getExamsByCourse` for all courses? 
-        // Let's check `getExamList` implementation in previous step.
-        // Yes, it iterates all courses and fetches exams. So it is compatible.
+            // Filter exams by active courses
+            let filteredExams = allExams.filter(exam =>
+                activeCourseNames.includes(exam.courseName || '')
+            );
 
-        allExams = await ExamService.getExamList();
+            console.log('🎯 Filtered exams (by enrollment):', filteredExams.length);
 
-        let filteredExams = allExams.filter(exam =>
-            activeCourseNames.includes(exam.courseName || '')
-        );
+            // Apply course filter if present
+            if (courseFilter) {
+                filteredExams = filteredExams.filter(exam => exam.courseName === courseFilter);
+                console.log(`🔎 Filtered by "${courseFilter}":`, filteredExams.length);
+            }
 
-        // ⭐️ 과정 필터가 있으면 추가 필터링
-        if (courseFilter) {
-            filteredExams = filteredExams.filter(exam => exam.courseName === courseFilter);
+            setExams(filteredExams);
+        } catch (err) {
+            console.error('❌ Error loading exams:', err);
+            setError('시험 목록을 불러오는데 실패했습니다.');
+        } finally {
+            setLoading(false);
         }
-
-        setExams(filteredExams);
-        setLoading(false);
     };
 
     return (
@@ -115,6 +128,28 @@ export const ExamSelectPage = () => {
 
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '3rem' }}>로딩중...</div>
+                ) : error ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', color: '#e11d48' }}>
+                        <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
+                        <p>{error}</p>
+                        <button
+                            onClick={() => loadExams()}
+                            className="btn btn-primary"
+                            style={{ marginTop: '1rem' }}
+                        >
+                            다시 시도
+                        </button>
+                    </div>
+                ) : exams.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--slate-500)' }}>
+                        <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                        <p>현재 수강 중인 과정에 등록된 시험이 없습니다.</p>
+                        {courseFilter && (
+                            <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                                "{courseFilter}" 과정에 시험이 등록되지 않았습니다.
+                            </p>
+                        )}
+                    </div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
                         {exams.map((exam) => (
@@ -130,7 +165,7 @@ export const ExamSelectPage = () => {
                                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem', lineHeight: 1.3 }}>{exam.title}</h3>
                                     <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', gap: '1rem' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={14} /> {exam.timeLimit}분</span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><AlertCircle size={14} /> {exam.questions.length}문항</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><AlertCircle size={14} /> {exam.questions?.length || exam.questionsCount || 0}문항</span>
                                     </div>
                                 </div>
 

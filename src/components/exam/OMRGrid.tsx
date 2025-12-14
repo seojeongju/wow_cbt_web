@@ -5,9 +5,10 @@ interface OMRGridProps {
     answers: { [key: string]: number };
     current: number;
     onJump: (idx: number) => void;
+    questionIds: string[]; // Add this to properly track answers
 }
 
-export const OMRGrid = ({ total, answers, current, onJump }: OMRGridProps) => (
+export const OMRGrid = ({ total, answers, current, onJump, questionIds }: OMRGridProps) => (
     <div style={{ position: 'sticky', top: '5.5rem', height: 'fit-content' }}>
         <div className="glass-card" style={{ padding: '1.5rem', background: 'white' }}>
             <h3 style={{ marginBottom: '1rem', fontSize: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -18,7 +19,8 @@ export const OMRGrid = ({ total, answers, current, onJump }: OMRGridProps) => (
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
                 {Array.from({ length: total }).map((_, idx) => {
-                    const isAnswered = answers[`q${idx + 1}`] !== undefined;
+                    const questionId = questionIds[idx];
+                    const isAnswered = questionId && answers[questionId] !== undefined;
                     const isCurrent = current === idx;
                     return (
                         <button
