@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -65,12 +65,17 @@ export const ExamPlayer = () => {
 
     const submitExam = async () => {
         if (window.confirm('시험을 종료하고 답안을 제출하시겠습니까?')) {
-            const score = exam.questions.reduce((acc, q) => {
-                return acc + (answers[q.id] === q.correctAnswer ? 1 : 0);
-            }, 0);
+            try {
+                const score = exam.questions.reduce((acc, q) => {
+                    return acc + (answers[q.id] === q.correctAnswer ? 1 : 0);
+                }, 0);
 
-            await ExamService.submitExamResult(exam.id, answers, score);
-            setShowResult(true);
+                await ExamService.submitExamResult(exam.id, answers, score);
+                setShowResult(true);
+            } catch (error) {
+                console.error('Failed to submit exam', error);
+                alert('답안 제출 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
         }
     };
 

@@ -33,8 +33,7 @@ export const OMRGrid = ({ total, answers, current, onJump }: OMRGridProps) => (
                                 color: isCurrent ? 'white' : (isAnswered ? 'var(--primary-700)' : 'var(--slate-500)'),
                                 border: isCurrent ? 'none' : '1px solid transparent',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                fontSize: '0.85rem'
+                                transition: 'all 0.2s'
                             }}
                         >
                             {idx + 1}

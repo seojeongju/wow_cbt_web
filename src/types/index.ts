@@ -11,12 +11,83 @@ export interface Question {
 export interface Exam {
     id: string;
     title: string;
+    courseName?: string;
+    description?: string;
     timeLimit: number; // in minutes
+    passScore?: number;
     questions: Question[];
+    questionsCount?: number;
 }
 
 export interface UserAnswer {
     questionId: string;
     selectedOption: number | null; // null if not answered
     isCorrect: boolean;
+}
+
+export interface Category {
+    id: string;
+    name: string;
+}
+
+export interface Course {
+    id: string;
+    name: string;
+}
+
+export interface CourseEnrollment {
+    courseName: string;
+    enrolledAt: string;
+    status: 'pending' | 'active' | 'rejected' | 'expired';
+    expiresAt?: string;
+}
+
+export interface User {
+    id: string;
+    email: string;
+    password?: string;
+    name: string;
+    phone: string;
+    role: 'student' | 'admin';
+    courseEnrollments: CourseEnrollment[];
+    createdAt: string;
+    lastLoginAt?: string;
+    approved?: boolean;
+    pendingCourses?: any[];
+}
+
+export interface ExamResult {
+    id: string;
+    userId: string;
+    examId: string;
+    examTitle?: string;
+    courseName?: string;
+    score: number;
+    totalQuestions: number;
+    wrongCount: number;
+    date: string; // ISO string
+    passed: boolean;
+    answers?: { [key: string]: number }; // Optional for history detail
+    status?: 'completed';
+}
+
+export interface WrongProblem {
+    id: string; // Unique ID (timestamp_questionId)
+    examId: string;
+    question: Question;
+    wrongAnswer: number | string | null;
+    date: string;
+}
+
+export interface Inquiry {
+    id: string;
+    userId: string;
+    userName: string;
+    category: string; // 'ERROR', 'QUESTION', 'OTHER' or custom string
+    title: string;
+    content: string;
+    status: 'PENDING' | 'RESOLVED';
+    createdAt: string;
+    answer?: string; // Admin reply
+    answeredAt?: string;
 }
