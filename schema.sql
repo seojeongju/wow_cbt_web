@@ -2,6 +2,8 @@
 -- WOW3D CBT Database Schema (Cloudflare D1)
 -- ============================================
 
+PRAGMA foreign_keys = OFF;
+
 -- 1. Users Table
 DROP TABLE IF EXISTS users;
 CREATE TABLE users (
