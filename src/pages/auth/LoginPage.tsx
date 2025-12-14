@@ -2,19 +2,31 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Layers, Box, Cpu, ArrowRight, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AuthService } from '../../services/authService';
 
 export const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [role, setRole] = useState<'student' | 'admin'>('student');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (role === 'student') {
-            navigate('/student/dashboard');
-        } else {
-            // navigate('/admin/dashboard'); // Future implementation
-            alert('관리자 대시보드는 준비중입니다.');
+        try {
+            const user = await AuthService.login(email, password);
+            if (user) {
+                if (user.role === 'admin') {
+                    navigate('/admin/dashboard');
+                } else {
+                    navigate('/student/dashboard');
+                }
+            } else {
+                alert('이메일 또는 비밀번호를 확인해주세요.');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('로그인 중 오류가 발생했습니다.');
         }
     };
 
@@ -91,7 +103,7 @@ export const LoginPage = () => {
                     <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
                         <div style={{ marginBottom: '2.5rem' }}>
                             <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>환영합니다! 👋</h2>
-                            <p style={{ color: 'var(--text-muted)' }}>계정이 없으신가요? <a href="#" style={{ color: 'var(--primary-600)', fontWeight: 600 }}>회원가입</a></p>
+                            <p style={{ color: 'var(--text-muted)' }}>계정이 없으신가요? <span onClick={() => navigate('/register')} style={{ color: 'var(--primary-600)', fontWeight: 600, cursor: 'pointer' }}>회원가입</span></p>
                         </div>
 
                         {/* Role Switcher (Optional, nice touch) */}
@@ -105,7 +117,15 @@ export const LoginPage = () => {
                                 <label className="input-label">이메일 주소</label>
                                 <div style={{ position: 'relative' }}>
                                     <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
-                                    <input type="email" className="input-field" placeholder="name@example.com" style={{ paddingLeft: '3rem' }} />
+                                    <input
+                                        type="email"
+                                        className="input-field"
+                                        placeholder="name@example.com"
+                                        style={{ paddingLeft: '3rem' }}
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
                                 </div>
                             </div>
 
@@ -118,6 +138,9 @@ export const LoginPage = () => {
                                         className="input-field"
                                         placeholder="Enter your password"
                                         style={{ paddingLeft: '3rem', paddingRight: '3rem' }}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
                                     />
                                     <button
                                         type="button"
