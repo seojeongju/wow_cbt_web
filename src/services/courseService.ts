@@ -13,24 +13,24 @@ export const CourseService = {
         }
     },
 
-    addCourse: async (name: string): Promise<void> => {
+    addCourse: async (name: string, details?: any): Promise<void> => {
         try {
             await fetch('/api/courses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify({ name, details })
             });
         } catch (error) {
             console.error('addCourse error:', error);
         }
     },
 
-    updateCourse: async (id: string, name: string): Promise<void> => {
+    updateCourse: async (id: string, name: string, details?: any): Promise<void> => {
         try {
             await fetch(`/api/courses/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify({ name, details })
             });
         } catch (error) {
             console.error('updateCourse error:', error);

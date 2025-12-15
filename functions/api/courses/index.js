@@ -38,7 +38,7 @@ export async function onRequestPost(context) {
     const { request, env } = context;
 
     try {
-        const { name } = await request.json();
+        const { name, details } = await request.json();
 
         if (!name || !name.trim()) {
             return new Response(JSON.stringify({
@@ -68,8 +68,8 @@ export async function onRequestPost(context) {
         const courseId = `course_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         await env.DB.prepare(`
-            INSERT INTO courses (id, name) VALUES (?, ?)
-        `).bind(courseId, name.trim()).run();
+            INSERT INTO courses (id, name, details) VALUES (?, ?, ?)
+        `).bind(courseId, name.trim(), details ? JSON.stringify(details) : null).run();
 
         return new Response(JSON.stringify({
             success: true,

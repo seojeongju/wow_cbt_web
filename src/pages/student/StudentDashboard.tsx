@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     Play, BookOpen, AlertCircle, PlusCircle, X,
-    Trophy, Target, BarChart2, Clock, CheckCircle, GraduationCap, LayoutDashboard, ChevronRight, Award
+    Trophy, Target, BarChart2, Clock, CheckCircle, GraduationCap, LayoutDashboard, ChevronRight, Award, Home
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AuthService } from '../../services/authService';
@@ -231,6 +231,12 @@ export const StudentDashboard = () => {
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>{user.name}님</div>
                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.email}</div>
                         </div>
+                        <button
+                            onClick={() => navigate('/')}
+                            style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginRight: '0.5rem' }}
+                        >
+                            <Home size={16} /> 홈으로
+                        </button>
                         <button
                             onClick={() => navigate('/student/support')}
                             style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginRight: '0.5rem' }}

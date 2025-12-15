@@ -1,5 +1,6 @@
-
 // /api/auth/login
+import bcrypt from 'bcryptjs';
+
 export async function onRequestPost(context) {
     const { request, env } = context;
 
@@ -17,10 +18,10 @@ export async function onRequestPost(context) {
             });
         }
 
-        // Query user from D1
+        // Query user from D1 (Email Check First)
         const { results } = await env.DB.prepare(
-            'SELECT * FROM users WHERE email = ? AND role = ?'
-        ).bind(email, role).all();
+            'SELECT * FROM users WHERE email = ?'
+        ).bind(email).all();
 
         if (results.length === 0) {
             return new Response(JSON.stringify({
@@ -34,8 +35,42 @@ export async function onRequestPost(context) {
 
         const user = results[0];
 
-        // Check password (WARNING: Should use bcrypt in production)
-        if (user.password !== password) {
+        // Check Role Match
+        if (user.role !== role) {
+            const correctTab = user.role === 'admin' ? '관리자' : '수강생';
+            return new Response(JSON.stringify({
+                success: false,
+                message: `해당 계정은 [${correctTab}] 권한을 가지고 있습니다. ${correctTab} 로그인 탭을 이용해주세요.`
+            }), {
+                status: 403,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+
+
+        // Check password with bcrypt (and fallback for legacy plaintext)
+        let isValid = false;
+        try {
+            isValid = await bcrypt.compare(password, user.password);
+        } catch (e) {
+            // Not a valid hash probably
+        }
+
+        if (!isValid && user.password === password) {
+            isValid = true;
+            // Auto-migrate to bcrypt
+            try {
+                const salt = await bcrypt.genSalt(10);
+                const hash = await bcrypt.hash(password, salt);
+                await env.DB.prepare('UPDATE users SET password = ? WHERE id = ?').bind(hash, user.id).run();
+                console.log(`Migrated password for user ${email}`);
+            } catch (err) {
+                console.error('Password migration failed', err);
+            }
+        }
+
+        if (!isValid) {
             return new Response(JSON.stringify({
                 success: false,
                 message: '비밀번호가 일치하지 않습니다.'

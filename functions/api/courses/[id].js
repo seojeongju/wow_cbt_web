@@ -4,7 +4,7 @@ export async function onRequestPut(context) {
     const courseId = params.id;
 
     try {
-        const { name } = await request.json();
+        const { name, details } = await request.json();
 
         if (!name || !name.trim()) {
             return new Response(JSON.stringify({
@@ -31,9 +31,20 @@ export async function onRequestPut(context) {
             });
         }
 
-        await env.DB.prepare(`
-            UPDATE courses SET name = ? WHERE id = ?
-        `).bind(name.trim(), courseId).run();
+        // Dynamic Query Construction
+        let query = 'UPDATE courses SET name = ?';
+        const bindParams = [name.trim()];
+
+        // If details provided, update it (JSON stringify)
+        if (details !== undefined) {
+            query += ', details = ?';
+            bindParams.push(JSON.stringify(details));
+        }
+
+        query += ' WHERE id = ?';
+        bindParams.push(courseId);
+
+        await env.DB.prepare(query).bind(...bindParams).run();
 
         return new Response(JSON.stringify({
             success: true,

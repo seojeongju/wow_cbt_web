@@ -10,6 +10,7 @@ export const AdminSupportPage = () => {
     const navigate = useNavigate();
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('ALL');
+    const [userTypeFilter, setUserTypeFilter] = useState<'ALL' | 'MEMBER' | 'GUEST'>('ALL');
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -64,9 +65,15 @@ export const AdminSupportPage = () => {
         }
     };
 
-    const filteredInquiries = filter === 'ALL'
-        ? inquiries
-        : inquiries.filter(i => i.status === filter);
+    const filteredInquiries = inquiries.filter(i => {
+        const statusMatch = filter === 'ALL' ? true : i.status === filter;
+        const userTypeMatch = userTypeFilter === 'ALL'
+            ? true
+            : userTypeFilter === 'MEMBER'
+                ? !!i.userId
+                : !i.userId;
+        return statusMatch && userTypeMatch;
+    });
 
     // Pagination
     const totalPages = Math.ceil(filteredInquiries.length / ITEMS_PER_PAGE);
@@ -97,29 +104,55 @@ export const AdminSupportPage = () => {
             </div>
 
             {/* Filters */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                {['ALL', 'PENDING', 'RESOLVED'].map((f) => (
-                    <button
-                        key={f}
-                        onClick={() => handleFilterChange(f as any)}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            borderRadius: '2rem',
-                            border: 'none',
-                            background: filter === f ? '#3b82f6' : 'white',
-                            color: filter === f ? 'white' : '#64748b',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        {f === 'ALL' ? '전체 문의' : f === 'PENDING' ? '답변 대기' : '처리 완료'}
-                        <span style={{ marginLeft: '0.5rem', opacity: 0.8, fontSize: '0.9rem' }}>
-                            {inquiries.filter(i => f === 'ALL' ? true : i.status === f).length}
-                        </span>
-                    </button>
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    {['ALL', 'PENDING', 'RESOLVED'].map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => handleFilterChange(f as any)}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '2rem',
+                                border: 'none',
+                                background: filter === f ? '#3b82f6' : 'white',
+                                color: filter === f ? 'white' : '#64748b',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {f === 'ALL' ? '전체 문의' : f === 'PENDING' ? '답변 대기' : '처리 완료'}
+                            <span style={{ marginLeft: '0.5rem', opacity: 0.8, fontSize: '0.9rem' }}>
+                                {inquiries.filter(i => f === 'ALL' ? true : i.status === f).length}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* User Type Filter */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingLeft: '0.5rem' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600, marginRight: '0.5rem' }}>작성자 구분:</span>
+                    {['ALL', 'MEMBER', 'GUEST'].map((t) => (
+                        <button
+                            key={t}
+                            onClick={() => { setUserTypeFilter(t as any); setCurrentPage(1); }}
+                            style={{
+                                padding: '0.4rem 0.8rem',
+                                borderRadius: '0.5rem',
+                                border: userTypeFilter === t ? '1px solid #3b82f6' : '1px solid #e2e8f0',
+                                background: userTypeFilter === t ? '#eff6ff' : 'white',
+                                color: userTypeFilter === t ? '#2563eb' : '#64748b',
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {t === 'ALL' ? '전체' : t === 'MEMBER' ? '회원' : '비회원'}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {loading ? (
@@ -137,14 +170,30 @@ export const AdminSupportPage = () => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                         <div style={{
-                                            width: '40px', height: '40px', borderRadius: '50%', background: '#f1f5f9',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                                            width: '40px', height: '40px', borderRadius: '50%',
+                                            background: inq.userId ? '#eff6ff' : '#f3f4f6',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: inq.userId ? '#3b82f6' : '#9ca3af'
                                         }}>
                                             <User size={20} />
                                         </div>
                                         <div>
-                                            <div style={{ fontWeight: 700, color: '#1e293b' }}>{inq.userName}</div>
-                                            <div style={{ fontSize: '0.85rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <div style={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {inq.userName}
+                                                <span style={{
+                                                    fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '0.3rem',
+                                                    background: inq.userId ? '#dbeafe' : '#f3f4f6',
+                                                    color: inq.userId ? '#1e40af' : '#4b5563',
+                                                    border: '1px solid', borderColor: inq.userId ? '#bfdbfe' : '#e5e7eb',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {inq.userId ? '회원' : '비회원'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                <span style={{ color: '#94a3b8' }}>✉️</span> {inq.userEmail}
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
                                                 <Clock size={14} /> {new Date(inq.createdAt).toLocaleString()}
                                             </div>
                                         </div>

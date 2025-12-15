@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, BarChart2, MousePointerClick, ChevronRight, Printer, PenTool, Cpu, Box, UserPlus, PlayCircle, Trophy, CheckCircle2, X, Clock, Target, Award, FileText } from 'lucide-react';
+import { BookOpen, BarChart2, MousePointerClick, ChevronRight, Printer, PenTool, Cpu, Box, UserPlus, PlayCircle, Trophy, CheckCircle2, X, Clock, Target, Award, FileText, MessageCircle } from 'lucide-react';
 import { CourseService } from '../services/courseService';
 import { AuthService } from '../services/authService';
+import { SupportService } from '../services/supportService';
+import { formatPhoneNumber } from '../utils/formatters';
 import { useEffect, useState } from 'react';
 
 // 과정별 상세 정보 데이터
@@ -39,6 +41,64 @@ export const LandingPage = () => {
     // 과정 상세 모달 상태
     const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
     const [showCourseModal, setShowCourseModal] = useState(false);
+
+    // 문의 모달 상태
+    const [showSupportModal, setShowSupportModal] = useState(false);
+    const [isSupportSubmitting, setIsSupportSubmitting] = useState(false);
+    const [supportForm, setSupportForm] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        category: 'QUESTION',
+        title: '',
+        content: '',
+        agree: false
+    });
+
+    const handleSupportSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Validation
+        if (!isLoggedIn) {
+            if (!supportForm.name || !supportForm.email) {
+                alert('이름과 이메일을 입력해주세요.');
+                return;
+            }
+            if (!supportForm.agree) {
+                alert('개인정보 수집 및 이용에 동의해주세요.');
+                return;
+            }
+        }
+        if (!supportForm.title || !supportForm.content) {
+            alert('제목과 내용을 입력해주세요.');
+            return;
+        }
+
+        setIsSupportSubmitting(true);
+        try {
+            const user = AuthService.getCurrentUser();
+            await SupportService.createInquiry({
+                userId: user?.id, // Optional
+                userName: isLoggedIn ? user!.name : supportForm.name,
+                userEmail: isLoggedIn ? user!.email : supportForm.email,
+                category: supportForm.category,
+                title: supportForm.title,
+                content: isLoggedIn
+                    ? supportForm.content
+                    : `[연락처: ${supportForm.phone || '미입력'}]\n\n${supportForm.content}`
+            });
+            alert(isLoggedIn
+                ? '문의가 등록되었습니다.\n답변은 대시보드 또는 가입하신 이메일로 확인 가능합니다.'
+                : '문의가 등록되었습니다.\n답변은 입력하신 이메일로 발송됩니다.');
+            setShowSupportModal(false);
+            setSupportForm({ ...supportForm, title: '', content: '', agree: false });
+        } catch (error) {
+            console.error(error);
+            alert('문의 등록 중 오류가 발생했습니다.');
+        } finally {
+            setIsSupportSubmitting(false);
+        }
+    };
 
     const slides = [
         {
@@ -113,7 +173,19 @@ export const LandingPage = () => {
                         <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: '32px' }} />
                         <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', letterSpacing: '-0.5px' }}>WOW3D-CBT</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setShowSupportModal(true)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                background: 'transparent', border: 'none',
+                                color: '#475569', fontWeight: 600, cursor: 'pointer',
+                                fontSize: '0.95rem'
+                            }}
+                        >
+                            <MessageCircle size={18} /> 1:1 문의
+                        </button>
+                        <div style={{ width: '1px', height: '16px', background: '#cbd5e1' }} />
                         {isLoggedIn ? (
                             <button onClick={() => navigate('/student/dashboard')} className="btn btn-primary">대시보드 가기</button>
                         ) : (
@@ -129,7 +201,7 @@ export const LandingPage = () => {
             {/* Hero Section with Slider */}
             <section style={{
                 position: 'relative',
-                height: '600px',
+                height: '440px',
                 overflow: 'hidden',
                 color: 'white',
                 textAlign: 'center'
@@ -172,45 +244,45 @@ export const LandingPage = () => {
                         flexDirection: 'column',
                         justifyContent: 'center',
                         alignItems: 'center',
-                        paddingTop: '60px' // Offset for fixed header
+                        paddingTop: '50px'
                     }}
                 >
                     <AnimatePresence mode='wait'>
                         <motion.div
                             key={`content-${currentSlide}`}
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -30 }}
+                            exit={{ opacity: 0, y: -15 }}
                             transition={{ duration: 0.6, delay: 0.2 }}
                             style={{ maxWidth: '800px', margin: '0 auto', padding: '0 1rem' }}
                         >
                             <div style={{
                                 display: 'inline-block',
-                                padding: '0.5rem 1rem',
+                                padding: '0.3rem 0.8rem',
                                 background: 'rgba(255, 255, 255, 0.1)',
                                 color: '#e2e8f0',
                                 borderRadius: '2rem',
                                 fontWeight: 700,
-                                fontSize: '0.9rem',
-                                marginBottom: '1.5rem',
+                                fontSize: '0.75rem',
+                                marginBottom: '0.8rem',
                                 border: '1px solid rgba(255, 255, 255, 0.2)',
                                 backdropFilter: 'blur(4px)'
                             }}>
                                 {slides[currentSlide].subtitle}
                             </div>
-                            <h1 style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '1.5rem', textShadow: '0 4px 10px rgba(0,0,0,0.8)', color: 'white' }}>
+                            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '0.8rem', textShadow: '0 4px 10px rgba(0,0,0,0.8)', color: 'white' }}>
                                 {slides[currentSlide].title.split('\n').map((line, i) => (
                                     <span key={i} style={{ display: 'block' }}>{line}</span>
                                 ))}
                             </h1>
-                            <p style={{ fontSize: '1.2rem', color: '#f1f5f9', marginBottom: '3rem', lineHeight: 1.6, textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontWeight: 500 }}>
+                            <p style={{ fontSize: '0.9rem', color: '#f1f5f9', marginBottom: '1.5rem', lineHeight: 1.5, textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontWeight: 500 }}>
                                 {slides[currentSlide].desc}
                             </p>
                             <button
                                 onClick={handleStartClick}
                                 style={{
-                                    padding: '1rem 2.5rem',
-                                    fontSize: '1.2rem',
+                                    padding: '0.6rem 1.5rem',
+                                    fontSize: '0.9rem',
                                     fontWeight: 700,
                                     color: 'white',
                                     background: '#6366f1',
@@ -221,23 +293,23 @@ export const LandingPage = () => {
                                     transition: 'transform 0.2s',
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '0.5rem'
+                                    gap: '0.4rem'
                                 }}
                             >
-                                시작하기 <ChevronRight />
+                                시작하기 <ChevronRight size={16} />
                             </button>
                         </motion.div>
                     </AnimatePresence>
 
                     {/* Dots Navigation */}
-                    <div style={{ display: 'flex', gap: '0.8rem', marginTop: '3rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
                         {slides.map((_, index) => (
                             <button
                                 key={index}
                                 onClick={() => setCurrentSlide(index)}
                                 style={{
-                                    width: '12px',
-                                    height: '12px',
+                                    width: '8px',
+                                    height: '8px',
                                     borderRadius: '50%',
                                     border: 'none',
                                     background: currentSlide === index ? '#6366f1' : 'rgba(255,255,255,0.3)',
@@ -551,7 +623,31 @@ export const LandingPage = () => {
 
             {/* 과정 상세 모달 */}
             {showCourseModal && selectedCourse && (() => {
-                const detail = courseDetails[selectedCourse.name] || defaultCourseDetail;
+                let detail = defaultCourseDetail;
+
+                // 1. Try DB details
+                if (selectedCourse.details) {
+                    try {
+                        const dbDetail = typeof selectedCourse.details === 'string'
+                            ? JSON.parse(selectedCourse.details)
+                            : selectedCourse.details;
+
+                        if (dbDetail && (dbDetail.description || dbDetail.targets)) {
+                            detail = {
+                                description: dbDetail.description || defaultCourseDetail.description,
+                                targets: (dbDetail.targets && dbDetail.targets.length > 0) ? dbDetail.targets : defaultCourseDetail.targets,
+                                features: (dbDetail.features && dbDetail.features.length > 0) ? dbDetail.features : defaultCourseDetail.features,
+                                howToUse: (dbDetail.howToUse && dbDetail.howToUse.length > 0) ? dbDetail.howToUse : defaultCourseDetail.howToUse
+                            };
+                        }
+                    } catch (e) {
+                        // Fallback on error
+                    }
+                }
+                // 2. Try Hardcoded details (Legacy Support)
+                else if (courseDetails[selectedCourse.name]) {
+                    detail = courseDetails[selectedCourse.name];
+                }
 
                 // 아이콘 및 색상 결정
                 let Icon = BookOpen;
@@ -698,6 +794,153 @@ export const LandingPage = () => {
                     </div>
                 );
             })()}
+            {/* 1:1 문의 모달 */}
+            {showSupportModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 2000, padding: '1rem'
+                }}>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{
+                            background: 'white', borderRadius: '1.5rem', padding: '2.5rem',
+                            maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                            position: 'relative'
+                        }}
+                    >
+                        <button
+                            onClick={() => setShowSupportModal(false)}
+                            style={{
+                                position: 'absolute', top: '1.5rem', right: '1.5rem',
+                                background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                                width: '36px', height: '36px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                        >
+                            <X size={20} color="#64748b" />
+                        </button>
+
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <MessageCircle size={28} color="#6366f1" /> 1:1 문의
+                            </h2>
+                            <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
+                                {isLoggedIn
+                                    ? '궁금한 점이나 불편한 사항을 남겨주세요.'
+                                    : '로그인하지 않아도 문의가 가능합니다. 답변은 이메일로 발송됩니다.'}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleSupportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* 게스트 전용 필드 */}
+                            {!isLoggedIn && (
+                                <>
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>이름</label>
+                                            <input
+                                                type="text"
+                                                value={supportForm.name}
+                                                onChange={e => setSupportForm({ ...supportForm, name: e.target.value })}
+                                                placeholder="이름"
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1.5 }}>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>이메일</label>
+                                            <input
+                                                type="email"
+                                                value={supportForm.email}
+                                                onChange={e => setSupportForm({ ...supportForm, email: e.target.value })}
+                                                placeholder="example@email.com"
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>전화번호</label>
+                                        <input
+                                            type="tel"
+                                            value={supportForm.phone}
+                                            onChange={e => setSupportForm({ ...supportForm, phone: formatPhoneNumber(e.target.value) })}
+                                            placeholder="010-0000-0000"
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>문의 유형</label>
+                                <select
+                                    value={supportForm.category}
+                                    onChange={e => setSupportForm({ ...supportForm, category: e.target.value })}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem', background: 'white' }}
+                                >
+                                    <option value="QUESTION">학습/이용 질문</option>
+                                    <option value="ERROR">오류/불편 신고</option>
+                                    <option value="OTHER">기타 문의</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>제목</label>
+                                <input
+                                    type="text"
+                                    value={supportForm.title}
+                                    onChange={e => setSupportForm({ ...supportForm, title: e.target.value })}
+                                    placeholder="문의 제목을 입력해주세요"
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.3rem' }}>내용</label>
+                                <textarea
+                                    value={supportForm.content}
+                                    onChange={e => setSupportForm({ ...supportForm, content: e.target.value })}
+                                    placeholder="문의 내용을 상세히 적어주세요."
+                                    rows={5}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem', resize: 'none', fontFamily: 'inherit' }}
+                                />
+                            </div>
+
+                            {!isLoggedIn && (
+                                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
+                                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={supportForm.agree}
+                                            onChange={e => setSupportForm({ ...supportForm, agree: e.target.checked })}
+                                            style={{ marginTop: '0.15rem' }}
+                                        />
+                                        <span>
+                                            (필수) 문의 처리 및 답변 발송을 위해 이름, 이메일을 수집하며, 문의 해결 후 3년간 보관됩니다.
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isSupportSubmitting}
+                                style={{
+                                    padding: '1rem', borderRadius: '0.75rem', border: 'none',
+                                    background: '#6366f1', color: 'white', fontWeight: 700, fontSize: '1rem',
+                                    cursor: isSupportSubmitting ? 'not-allowed' : 'pointer',
+                                    opacity: isSupportSubmitting ? 0.7 : 1,
+                                    marginTop: '0.5rem'
+                                }}
+                            >
+                                {isSupportSubmitting ? '전송 중...' : '문의 등록하기'}
+                            </button>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
         </div>
     );
 };

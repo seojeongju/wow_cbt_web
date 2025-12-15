@@ -10,7 +10,8 @@ import {
     Menu,
     X,
     BarChart3,
-    MessageCircle
+    MessageCircle,
+    Home
 } from 'lucide-react';
 
 export const AdminLayout = () => {
@@ -19,6 +20,12 @@ export const AdminLayout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const menuItems = [
+        {
+            path: '/',
+            icon: Home,
+            label: '사이트 홈',
+            desc: '메인 페이지로 이동'
+        },
         {
             path: '/admin/dashboard',
             icon: LayoutDashboard,

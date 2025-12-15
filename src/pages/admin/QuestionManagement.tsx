@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Trash2, FileUp, Folder, FileText, LayoutGrid, BookOpen, Edit2, Image as ImageIcon, Settings, BrainCircuit, Key as KeyIcon, Sparkles, X, CheckCircle } from 'lucide-react';
 import { Question } from '../../types';
@@ -35,6 +35,15 @@ export const QuestionManagement = () => {
     // ⭐️ Load exams from ExamService
     const [exams, setExams] = useState<{ id: string; title: string; course: string }[]>([]);
 
+    // ⭐️ Course Description Editing State
+    const [showCourseEditModal, setShowCourseEditModal] = useState(false);
+    const [editCourseDetails, setEditCourseDetails] = useState({
+        description: '',
+        targets: '',
+        features: '',
+        howToUse: ''
+    });
+
     // ⭐️ Load initial data
     useEffect(() => {
         loadInitialData();
@@ -66,6 +75,48 @@ export const QuestionManagement = () => {
 
         setCourses(currentCourses);
         console.log('📚 Final course list:', currentCourses);
+    };
+
+    // ⭐️ Course Details Editing Handlers
+    const openCourseEditModal = () => {
+        if (!selectedCourse) return;
+        const currentCourse = fullCourses.find((c: any) => c.name === selectedCourse);
+        if (currentCourse) {
+            let details = currentCourse.details;
+            try {
+                if (typeof details === 'string') details = JSON.parse(details);
+            } catch (e) {
+                // Ignore parse error
+            }
+
+            setEditCourseDetails({
+                description: details?.description || '',
+                targets: details?.targets ? details.targets.join(', ') : '',
+                features: details?.features ? details.features.join(', ') : '',
+                howToUse: details?.howToUse ? details.howToUse.join('\n') : ''
+            });
+            setShowCourseEditModal(true);
+        }
+    };
+
+    const handleSaveCourseDetails = async () => {
+        if (!selectedCourse) return;
+        const currentCourse = fullCourses.find((c: any) => c.name === selectedCourse);
+        if (!currentCourse) return;
+
+        const detailsObj = {
+            description: editCourseDetails.description,
+            targets: editCourseDetails.targets.split(',').map((s: string) => s.trim()).filter(Boolean),
+            features: editCourseDetails.features.split(',').map((s: string) => s.trim()).filter(Boolean),
+            howToUse: editCourseDetails.howToUse.split('\n').map((s: string) => s.trim()).filter(Boolean)
+        };
+
+        if (confirm(`${selectedCourse} 과정 소개 내용을 저장하시겠습니까?`)) {
+            await CourseService.updateCourse(currentCourse.id, currentCourse.name, detailsObj);
+            alert('저장되었습니다.');
+            setShowCourseEditModal(false);
+            loadInitialData(); // Reload to get updated details
+        }
     };
 
     // Derived state for exam dropdown
@@ -976,6 +1027,25 @@ export const QuestionManagement = () => {
                                                     <Edit2 size={18} />
                                                 </button>
                                                 <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedCourse(course);
+                                                        setTimeout(() => openCourseEditModal(), 0);
+                                                    }}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        color: 'var(--slate-400)',
+                                                        padding: '4px',
+                                                        borderRadius: '4px'
+                                                    }}
+                                                    className="hover:bg-slate-100 hover:text-blue-600"
+                                                    title="과정 소개/상세 편집"
+                                                >
+                                                    <FileText size={18} />
+                                                </button>
+                                                <button
                                                     onClick={(e) => handleDeleteCourse(e, course)}
                                                     style={{
                                                         border: 'none',
@@ -1028,8 +1098,15 @@ export const QuestionManagement = () => {
                                 {/* Course Display (Read Only) */}
                                 <div style={{ flex: 1, minWidth: '200px' }}>
                                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--slate-500)', marginBottom: '0.5rem' }}>선택된 과정</label>
-                                    <div style={{ padding: '0.75rem', background: 'var(--slate-50)', borderRadius: '0.5rem', fontWeight: 600, color: 'var(--slate-700)' }}>
+                                    <div style={{ padding: '0.75rem', background: 'var(--slate-50)', borderRadius: '0.5rem', fontWeight: 600, color: 'var(--slate-700)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         {selectedCourse}
+                                        <button
+                                            onClick={openCourseEditModal}
+                                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)', padding: '2px' }}
+                                            title="과정 소개 편집"
+                                        >
+                                            <FileText size={16} />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2042,6 +2119,83 @@ export const QuestionManagement = () => {
                                 모든 문제가 추가되었습니다! 👍
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ⭐️ Course Description Edit Modal */}
+            {showCourseEditModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, padding: '1rem'
+                }}>
+                    <div style={{
+                        background: 'white', borderRadius: '1rem', padding: '2rem',
+                        maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>과정 소개 편집 ({selectedCourse})</h3>
+                            <button onClick={() => setShowCourseEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+                                <X size={24} color="#94a3b8" />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '1.5rem' }}>
+                            <div>
+                                <label className="input-label">과정 설명 (Description)</label>
+                                <textarea
+                                    className="input-field"
+                                    rows={4}
+                                    value={editCourseDetails.description}
+                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, description: e.target.value })}
+                                    placeholder="과정에 대한 전반적인 설명을 입력하세요."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="input-label">학습 대상 (Targets) - 콤마(,)로 구분</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    value={editCourseDetails.targets}
+                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, targets: e.target.value })}
+                                    placeholder="예: 취업 준비생, 실무자, 초보자"
+                                    style={{ width: '100%', padding: '0.75rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="input-label">주요 특징 (Features) - 콤마(,)로 구분</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    value={editCourseDetails.features}
+                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, features: e.target.value })}
+                                    placeholder="예: 실전 모의고사, AI 분석, 무제한 응시"
+                                    style={{ width: '100%', padding: '0.75rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="input-label">이용 방법 (How To Use) - 줄바꿈으로 구분</label>
+                                <textarea
+                                    className="input-field"
+                                    rows={5}
+                                    value={editCourseDetails.howToUse}
+                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, howToUse: e.target.value })}
+                                    placeholder="1. 회원가입 후 신청&#13;&#10;2. 승인 대기&#13;&#10;3. 학습 시작"
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', gap: '1rem' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowCourseEditModal(false)}>취소</button>
+                            <button className="btn btn-primary" onClick={handleSaveCourseDetails} style={{ background: '#0ea5e9', borderColor: '#0ea5e9' }}>
+                                저장하기
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

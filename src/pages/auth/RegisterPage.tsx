@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, User as UserIcon, Lock, Mail, Phone } from 'lucide-react';
+import { ArrowRight, User as UserIcon, Lock, Mail, Phone, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/authService';
 import { CourseService } from '../../services/courseService';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export const RegisterPage = () => {
     const navigate = useNavigate();
@@ -52,6 +53,15 @@ export const RegisterPage = () => {
 
         if (formData.password !== formData.confirmPassword) {
             setError('비밀번호가 일치하지 않습니다.');
+            return;
+        }
+
+        const isPasswordValid = formData.password.length >= 8 &&
+            /\d/.test(formData.password) &&
+            /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+
+        if (!isPasswordValid) {
+            setError('비밀번호는 8자 이상이어야 하며, 숫자와 특수문자를 포함해야 합니다.');
             return;
         }
 
@@ -174,8 +184,8 @@ export const RegisterPage = () => {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div className="input-group">
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            <div className="input-group" style={{ marginBottom: 0 }}>
                                 <label className="input-label">이름</label>
                                 <div style={{ position: 'relative' }}>
                                     <UserIcon size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
@@ -193,7 +203,7 @@ export const RegisterPage = () => {
                                 </div>
                             </div>
 
-                            <div className="input-group">
+                            <div className="input-group" style={{ marginBottom: 0 }}>
                                 <label className="input-label">이메일</label>
                                 <div style={{ position: 'relative' }}>
                                     <Mail size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
@@ -211,7 +221,7 @@ export const RegisterPage = () => {
                                 </div>
                             </div>
 
-                            <div className="input-group">
+                            <div className="input-group" style={{ marginBottom: 0 }}>
                                 <label className="input-label">전화번호</label>
                                 <div style={{ position: 'relative' }}>
                                     <Phone size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
@@ -224,12 +234,12 @@ export const RegisterPage = () => {
                                         style={{ paddingLeft: '3rem' }}
                                         required
                                         value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        onChange={e => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
                                     />
                                 </div>
                             </div>
 
-                            <div className="input-group">
+                            <div className="input-group" style={{ marginBottom: 0 }}>
                                 <label className="input-label">비밀번호</label>
                                 <div style={{ position: 'relative' }}>
                                     <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
@@ -246,8 +256,13 @@ export const RegisterPage = () => {
                                     />
                                 </div>
                             </div>
+                            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>
+                                <PasswordCheck label="8자 이상" isValid={formData.password.length >= 8} />
+                                <PasswordCheck label="숫자 포함" isValid={/\d/.test(formData.password)} />
+                                <PasswordCheck label="특수문자 포함" isValid={/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)} />
+                            </div>
 
-                            <div className="input-group">
+                            <div className="input-group" style={{ marginBottom: 0 }}>
                                 <label className="input-label">비밀번호 확인</label>
                                 <div style={{ position: 'relative' }}>
                                     <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
@@ -268,7 +283,7 @@ export const RegisterPage = () => {
                             {/* ⭐️ 과정 선택 (수강생만) */}
                             {/* ⭐️ 과정 선택 (수강생만) - 다중 선택 & 선택 사항 */}
                             {role === 'student' && (
-                                <div className="input-group">
+                                <div className="input-group" style={{ marginBottom: 0 }}>
                                     <label className="input-label">수강과정 및 시험 선택 (복수 선택 가능)</label>
                                     <div style={{
                                         display: 'flex', flexDirection: 'column', gap: '0.5rem',
@@ -311,3 +326,10 @@ export const RegisterPage = () => {
         </div>
     );
 };
+
+const PasswordCheck = ({ label, isValid }: { label: string, isValid: boolean }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: isValid ? '#10b981' : '#94a3b8', fontWeight: 500 }}>
+        <CheckCircle size={14} color={isValid ? '#10b981' : '#cbd5e1'} strokeWidth={3} />
+        <span>{label}</span>
+    </div>
+);

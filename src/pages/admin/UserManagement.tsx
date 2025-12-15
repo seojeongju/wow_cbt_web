@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, User, Edit, Save, X, BookOpen, Clock, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { User as TypeUser, CourseEnrollment } from '../../types';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export const UserManagement = () => {
     const [users, setUsers] = useState<TypeUser[]>([]);
@@ -171,7 +172,7 @@ export const UserManagement = () => {
         setEditForm({
             name: user.name,
             email: user.email,
-            phone: user.phone || '',
+            phone: formatPhoneNumber(user.phone) || '',
             role: user.role,
             approved: user.approved || false
         });
@@ -339,7 +340,7 @@ export const UserManagement = () => {
                                             )}
                                         </div>
                                         <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginTop: '0.5rem' }}>
-                                            전화: {user.phone || '-'}
+                                            전화: {formatPhoneNumber(user.phone) || '-'}
                                         </div>
                                     </div>
 
@@ -759,7 +760,7 @@ export const UserManagement = () => {
                                     <input
                                         type="tel"
                                         value={editForm.phone}
-                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                        onChange={(e) => setEditForm({ ...editForm, phone: formatPhoneNumber(e.target.value) })}
                                         className="input-field"
                                         style={{ width: '100%' }}
                                     />

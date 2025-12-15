@@ -52,28 +52,38 @@ export const AuthService = {
 
         const freshUser = await AuthService.getUserById(localUser.id);
         if (freshUser) {
-            localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(freshUser));
+            if (localStorage.getItem(STORAGE_KEY_SESSION)) {
+                localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(freshUser));
+            } else {
+                sessionStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(freshUser));
+            }
             return freshUser;
         }
         return localUser;
     },
 
-    // Get current user from session (localStorage cache)
+    // Get current user from session (sessionStorage priority, then localStorage)
     getCurrentUser: (): User | null => {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY_SESSION) || 'null');
+            const sessionData = sessionStorage.getItem(STORAGE_KEY_SESSION);
+            if (sessionData) return JSON.parse(sessionData);
+
+            const localData = localStorage.getItem(STORAGE_KEY_SESSION);
+            if (localData) return JSON.parse(localData);
+
+            return null;
         } catch {
             return null;
         }
     },
 
     // Login
-    login: async (email: string, password: string): Promise<User | null> => {
+    login: async (email: string, password: string, role: string, rememberMe: boolean = false): Promise<User | null> => {
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, role })
             });
 
             if (!response.ok) {
@@ -85,8 +95,16 @@ export const AuthService = {
             const data = await response.json();
             if (data.success && data.user) {
                 const user = mapUser(data.user);
-                // Save session
-                localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+
+                // Save session based on rememberMe
+                if (rememberMe) {
+                    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+                    sessionStorage.removeItem(STORAGE_KEY_SESSION);
+                } else {
+                    sessionStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+                    localStorage.removeItem(STORAGE_KEY_SESSION);
+                }
+
                 return user;
             }
             return null;
@@ -99,6 +117,7 @@ export const AuthService = {
     // Logout
     logout: () => {
         localStorage.removeItem(STORAGE_KEY_SESSION);
+        sessionStorage.removeItem(STORAGE_KEY_SESSION);
         window.location.href = '/';
     },
 
@@ -137,7 +156,11 @@ export const AuthService = {
                 if (currentUser && currentUser.id === user.id) {
                     // Update cache responsibly (merge?)
                     const updatedUser = { ...currentUser, ...user };
-                    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(updatedUser));
+                    if (localStorage.getItem(STORAGE_KEY_SESSION)) {
+                        localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(updatedUser));
+                    } else {
+                        sessionStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(updatedUser));
+                    }
                 }
             } else {
                 console.error('Update user failed');
@@ -177,20 +200,20 @@ export const AuthService = {
     },
 
     // Reset Password
-    resetPassword: async (name: string, email: string, phone: string): Promise<string | null> => {
+    resetPassword: async (name: string, email: string, phone: string, newPassword?: string): Promise<string | null> => {
         try {
-            // Generate a random temporary password here, as the backend requires it
-            const tempPass = Math.random().toString(36).slice(-8);
+            // Use provided password or generate a random temporary password
+            const passwordToSet = newPassword || Math.random().toString(36).slice(-8);
 
             const response = await fetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, phone, newPassword: tempPass })
+                body: JSON.stringify({ name, email, phone, newPassword: passwordToSet })
             });
 
             const data = await response.json();
             if (data.success) {
-                return tempPass;
+                return passwordToSet;
             }
             return null;
         } catch (error) {

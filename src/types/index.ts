@@ -33,6 +33,7 @@ export interface Category {
 export interface Course {
     id: string;
     name: string;
+    details?: string; // JSON string containing { description, targets, features, howToUse }
     category?: string;
 }
 
@@ -84,7 +85,7 @@ export interface WrongProblem {
 
 export interface Inquiry {
     id: string;
-    userId: string;
+    userId?: string;
     userName: string;
     category: string; // 'ERROR', 'QUESTION', 'OTHER' or custom string
     title: string;
