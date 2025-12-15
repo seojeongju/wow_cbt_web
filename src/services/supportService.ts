@@ -29,11 +29,13 @@ export const SupportService = {
 
     updateInquiry: async (id: string, answer: string): Promise<boolean> => {
         try {
-            // Assuming PUT /api/support/:id exists for admin reply
             const response = await fetch(`/api/support/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ answer }) // Adjusted for likely API shape
+                body: JSON.stringify({
+                    adminReply: answer,  // Backend expects 'adminReply', not 'answer'
+                    status: 'RESOLVED'    // Automatically mark as resolved when replying
+                })
             });
             return response.ok;
         } catch { return false; }
