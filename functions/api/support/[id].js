@@ -22,23 +22,23 @@ export async function onRequestPut(context) {
         }
 
         const updates = [];
-        const params = [];
+        const bindParams = []; // Changed from 'params' to avoid conflict with route params
 
         if (adminReply !== undefined) {
             updates.push('admin_reply = ?');
-            params.push(adminReply);
+            bindParams.push(adminReply);
         }
 
         if (status !== undefined) {
             updates.push('status = ?');
-            params.push(status);
+            bindParams.push(status);
         }
 
         updates.push('updated_at = datetime("now")');
-        params.push(ticketId);
+        bindParams.push(ticketId);
 
         const query = `UPDATE support_tickets SET ${updates.join(', ')} WHERE id = ?`;
-        await env.DB.prepare(query).bind(...params).run();
+        await env.DB.prepare(query).bind(...bindParams).run();
 
         return new Response(JSON.stringify({
             success: true,
