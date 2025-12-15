@@ -63,5 +63,84 @@ export const OpenAIService = {
             console.error('OpenAI Parsing Error:', error);
             throw error;
         }
+    },
+
+    // ⭐️ 유사 문제 생성 기능
+    generateSimilarQuestions: async (
+        originalQuestion: { text: string; options: string[]; correctAnswer: number; explanation?: string },
+        apiKey: string,
+        count: number = 3
+    ): Promise<any[]> => {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `You are an expert exam question creator for professional certification exams.
+                            
+Your task: Given an original question, create ${count} NEW similar questions that:
+1. Test the SAME concept/topic but with different scenarios or wording
+2. Maintain the SAME difficulty level
+3. Have 4 options each (one correct, three plausible distractors)
+4. Are completely original (not just rephrased)
+5. Include a Korean explanation for WHY the answer is correct
+
+Return ONLY a valid JSON array. Do not include markdown formatting.
+
+JSON Format:
+[
+    {
+        "text": "새로운 문제 내용...",
+        "options": ["선택지 1", "선택지 2", "선택지 3", "선택지 4"],
+        "correctAnswer": 0,
+        "explanation": "해설: 이 문제의 정답은 ~입니다. ~이기 때문입니다. (AI 생성)"
+    }
+]`
+                        },
+                        {
+                            role: "user",
+                            content: `다음 원본 문제를 바탕으로 ${count}개의 유사한 문제를 생성해주세요:
+
+문제: ${originalQuestion.text}
+
+선택지:
+1. ${originalQuestion.options[0]}
+2. ${originalQuestion.options[1]}
+3. ${originalQuestion.options[2]}
+4. ${originalQuestion.options[3]}
+
+정답: ${originalQuestion.correctAnswer + 1}번 (${originalQuestion.options[originalQuestion.correctAnswer]})
+
+${originalQuestion.explanation ? `해설: ${originalQuestion.explanation}` : ''}`
+                        }
+                    ],
+                    temperature: 0.7 // 더 창의적인 결과를 위해 높은 temperature
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error?.message || 'AI 요청 실패');
+            }
+
+            const data = await response.json();
+            const content = data.choices[0].message.content.trim();
+
+            // Remove markdown code blocks if present
+            const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            return JSON.parse(cleanJson);
+
+        } catch (error) {
+            console.error('OpenAI Generate Similar Questions Error:', error);
+            throw error;
+        }
     }
 };

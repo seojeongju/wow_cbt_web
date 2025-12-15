@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Trash2, FileUp, Folder, FileText, LayoutGrid, BookOpen, Edit2, Image as ImageIcon, Settings, BrainCircuit, Key as KeyIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, FileUp, Folder, FileText, LayoutGrid, BookOpen, Edit2, Image as ImageIcon, Settings, BrainCircuit, Key as KeyIcon, Sparkles, X, CheckCircle } from 'lucide-react';
 import { Question } from '../../types';
 import { ExamService } from '../../services/examService';
 import { CategoryService } from '../../services/categoryService';
@@ -22,6 +22,11 @@ export const QuestionManagement = () => {
     const [apiKey, setApiKey] = useState('');
     const [showApiKeyModal, setShowApiKeyModal] = useState(false);
     const [isAiProcessing, setIsAiProcessing] = useState(false);
+
+    // ⭐️ AI 유사 문제 생성 State
+    const [showSimilarModal, setShowSimilarModal] = useState(false);
+    const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
+    const [generatingForQuestion, setGeneratingForQuestion] = useState<Question | null>(null);
 
     // ⭐️ Load courses from CourseService
     const [courses, setCourses] = useState<string[]>([]);
@@ -519,6 +524,84 @@ export const QuestionManagement = () => {
         const newOpts = [...(newQuestion.options || [])];
         newOpts[idx] = val;
         setNewQuestion({ ...newQuestion, options: newOpts });
+    };
+
+    // ⭐️ AI 유사 문제 생성 핸들러
+    const handleGenerateSimilar = async (question: Question) => {
+        if (!apiKey) {
+            alert('OpenAI API Key를 먼저 설정해주세요.');
+            setShowApiKeyModal(true);
+            return;
+        }
+
+        setGeneratingForQuestion(question);
+        setIsAiProcessing(true);
+        setGeneratedQuestions([]);
+        setShowSimilarModal(true);
+
+        try {
+            const generated = await OpenAIService.generateSimilarQuestions(
+                {
+                    text: question.text,
+                    options: question.options,
+                    correctAnswer: typeof question.correctAnswer === 'number' ? question.correctAnswer : 0,
+                    explanation: question.explanation
+                },
+                apiKey,
+                3 // 3개의 유사문제 생성
+            );
+            setGeneratedQuestions(generated);
+        } catch (error: any) {
+            console.error('AI 생성 오류:', error);
+            alert('유사 문제 생성 실패: ' + error.message);
+            setShowSimilarModal(false);
+        } finally {
+            setIsAiProcessing(false);
+        }
+    };
+
+    // 생성된 문제 하나 추가
+    const handleAddGeneratedQuestion = async (genQ: any, index: number) => {
+        if (!selectedExamId) return;
+
+        const newQ: Question = {
+            id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text: genQ.text,
+            options: genQ.options,
+            correctAnswer: genQ.correctAnswer,
+            category: generatingForQuestion?.category || 'AI 추출',
+            explanation: genQ.explanation
+        };
+
+        await ExamService.addQuestionToExam(selectedExamId, newQ);
+
+        // 추가한 문제는 목록에서 제거
+        setGeneratedQuestions(prev => prev.filter((_, i) => i !== index));
+
+        alert(`문제가 추가되었습니다!`);
+        loadQuestions(selectedExamId);
+    };
+
+    // 생성된 문제 모두 추가
+    const handleAddAllGeneratedQuestions = async () => {
+        if (!selectedExamId || generatedQuestions.length === 0) return;
+
+        for (const genQ of generatedQuestions) {
+            const newQ: Question = {
+                id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                text: genQ.text,
+                options: genQ.options,
+                correctAnswer: genQ.correctAnswer,
+                category: generatingForQuestion?.category || 'AI 추출',
+                explanation: genQ.explanation
+            };
+            await ExamService.addQuestionToExam(selectedExamId, newQ);
+        }
+
+        alert(`${generatedQuestions.length}개의 문제가 모두 추가되었습니다!`);
+        setGeneratedQuestions([]);
+        setShowSimilarModal(false);
+        loadQuestions(selectedExamId);
     };
 
     // Excel Upload Handler
@@ -1301,6 +1384,9 @@ export const QuestionManagement = () => {
                                                                 )}
                                                             </div>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                                <button onClick={() => handleGenerateSimilar(q)} className="btn btn-secondary" style={{ height: 'fit-content', padding: '0.5rem', color: '#7c3aed' }} title="AI 유사 문제 생성">
+                                                                    <Sparkles size={18} />
+                                                                </button>
                                                                 <button onClick={() => handleEditQuestion(q)} className="btn btn-secondary" style={{ height: 'fit-content', padding: '0.5rem', color: 'var(--primary-600)' }} title="문제 수정">
                                                                     <Edit2 size={18} />
                                                                 </button>
@@ -1834,6 +1920,124 @@ export const QuestionManagement = () => {
                     </div>
                 )
             }
+
+            {/* ⭐️ AI 유사 문제 생성 모달 */}
+            {showSimilarModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, padding: '1rem'
+                }}>
+                    <div style={{
+                        background: 'white', borderRadius: '1rem', padding: '2rem',
+                        maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Sparkles size={20} color="white" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>AI 유사 문제 생성</h3>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>원본 문제를 바탕으로 새로운 문제를 생성합니다</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setShowSimilarModal(false); setGeneratedQuestions([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+                                <X size={24} color="#94a3b8" />
+                            </button>
+                        </div>
+
+                        {/* 원본 문제 */}
+                        {generatingForQuestion && (
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>📌 원본 문제</div>
+                                <div style={{ fontWeight: 600, color: '#334155' }}>{generatingForQuestion.text}</div>
+                            </div>
+                        )}
+
+                        {/* 로딩 */}
+                        {isAiProcessing && (
+                            <div style={{ textAlign: 'center', padding: '3rem' }}>
+                                <div style={{
+                                    width: '50px', height: '50px', border: '4px solid #e2e8f0',
+                                    borderTopColor: '#7c3aed', borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
+                                }} />
+                                <p style={{ color: '#64748b' }}>AI가 유사 문제를 생성하고 있습니다...</p>
+                                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                            </div>
+                        )}
+
+                        {/* 생성된 문제 목록 */}
+                        {!isAiProcessing && generatedQuestions.length > 0 && (
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <span style={{ fontWeight: 600, color: '#334155' }}>✨ 생성된 문제 ({generatedQuestions.length}개)</span>
+                                    <button
+                                        onClick={handleAddAllGeneratedQuestions}
+                                        className="btn btn-primary"
+                                        style={{ background: '#7c3aed', borderColor: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                        <CheckCircle size={16} /> 모두 추가
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {generatedQuestions.map((genQ, idx) => (
+                                        <div key={idx} style={{
+                                            background: 'white', padding: '1.25rem', borderRadius: '0.75rem',
+                                            border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '1rem' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 600, marginBottom: '0.75rem', color: '#1e293b' }}>
+                                                        {idx + 1}. {genQ.text}
+                                                    </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                        {genQ.options.map((opt: string, optIdx: number) => (
+                                                            <div key={optIdx} style={{
+                                                                padding: '0.5rem 0.75rem',
+                                                                borderRadius: '0.5rem',
+                                                                fontSize: '0.9rem',
+                                                                background: genQ.correctAnswer === optIdx ? '#dcfce7' : '#f8fafc',
+                                                                border: genQ.correctAnswer === optIdx ? '1px solid #16a34a' : '1px solid #e2e8f0',
+                                                                color: genQ.correctAnswer === optIdx ? '#16a34a' : '#475569',
+                                                                fontWeight: genQ.correctAnswer === optIdx ? 600 : 400
+                                                            }}>
+                                                                {optIdx + 1}. {opt} {genQ.correctAnswer === optIdx && '✓'}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {genQ.explanation && (
+                                                        <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}>
+                                                            💡 {genQ.explanation}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleAddGeneratedQuestion(genQ, idx)}
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', color: '#16a34a' }}
+                                                >
+                                                    <Plus size={16} /> 추가
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
+                        {/* 모든 문제 추가 완료 */}
+                        {!isAiProcessing && generatedQuestions.length === 0 && generatingForQuestion && (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                                모든 문제가 추가되었습니다! 👍
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div >
     );
 };
