@@ -20,8 +20,9 @@ import { ExamSelectPage } from './pages/student/ExamSelectPage';
 import { ExamHistoryPage } from './pages/student/ExamHistoryPage';
 import { StudentSupportPage } from './pages/student/StudentSupportPage';
 import { ExamPlayer } from './pages/exam/ExamPlayer';
-import { WrongAnswerNote } from './pages/review/WrongAnswerNote';
+import { WrongAnswerNote } from './pages/student/WrongAnswerNote';
 import { PracticeMode } from './pages/practice/PracticeMode';
+import { StudentAnalyticsPage } from './pages/student/StudentAnalyticsPage';
 
 // Layout & Auth
 import { AdminLayout } from './layouts/AdminLayout';
@@ -57,6 +58,7 @@ function App() {
           <Route path="/student/support" element={<StudentSupportPage />} />
           <Route path="/student/practice" element={<PracticeMode />} />
           <Route path="/student/review" element={<WrongAnswerNote />} />
+          <Route path="/student/analytics" element={<StudentAnalyticsPage />} />
           <Route path="/exam/:examId" element={<ExamPlayer />} />
         </Route>
 

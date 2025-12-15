@@ -6,9 +6,9 @@ export async function onRequestGet(context) {
     try {
         // Get exam details
         const { results: exams } = await env.DB.prepare(`
-            SELECT e.*, c.name as course_name
+            SELECT e.*, COALESCE(c.name, e.course_id) as course_name
             FROM exams e
-            JOIN courses c ON e.course_id = c.id
+            LEFT JOIN courses c ON e.course_id = c.id
             WHERE e.id = ?
         `).bind(examId).all();
 

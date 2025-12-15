@@ -66,7 +66,19 @@ export const ExamHistoryPage = () => {
 
                                     <div>
                                         <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                            <Calendar size={14} /> {new Date(record.date).toLocaleDateString()} {new Date(record.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <span style={{
+                                                padding: '0.2rem 0.5rem',
+                                                background: 'var(--slate-100)',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                color: 'var(--slate-700)'
+                                            }}>
+                                                {record.courseName || '기타'}
+                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                <Calendar size={14} /> {new Date(record.date).toLocaleDateString()}
+                                            </div>
                                         </div>
                                         <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.25rem' }}>{record.examTitle}</h3>
                                         <div style={{ display: 'flex', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--slate-600)' }}>

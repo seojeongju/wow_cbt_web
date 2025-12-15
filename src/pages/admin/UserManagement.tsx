@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, User, Edit, Save, X, BookOpen, Clock, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, User, Edit, Save, X, BookOpen, Clock, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { User as TypeUser, CourseEnrollment } from '../../types';
 
@@ -8,7 +8,7 @@ export const UserManagement = () => {
     // ⭐️ Updated Filter State
     const [filter, setFilter] = useState<'all' | 'pendingSignup' | 'pendingCourse' | 'active'>('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 5;
+    const itemsPerPage = 10;
 
     // Edit Modal State
     const [editingUser, setEditingUser] = useState<TypeUser | null>(null);
@@ -30,6 +30,15 @@ export const UserManagement = () => {
     const [durationType, setDurationType] = useState<'preset' | 'custom'>('preset');
     const [presetDuration, setPresetDuration] = useState<number | undefined>(3);
     const [customEndDate, setCustomEndDate] = useState('');
+
+    // ⭐️ Course Edit Modal State
+    const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+    const [editCourseData, setEditCourseData] = useState<{
+        userId: string;
+        courseName: string;
+        userName: string;
+        currentExpiresAt?: string;
+    } | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -99,6 +108,64 @@ export const UserManagement = () => {
         }
     };
 
+    // ⭐️ 과정 수정 모달 열기
+    const handleEditCourse = (userId: string, courseName: string, userName: string, expiresAt?: string) => {
+        setEditCourseData({ userId, courseName, userName, currentExpiresAt: expiresAt });
+        setShowEditCourseModal(true);
+        // 초기값 설정
+        if (expiresAt) {
+            setDurationType('custom');
+            setCustomEndDate(new Date(expiresAt).toISOString().split('T')[0]);
+        } else {
+            setDurationType('preset');
+            setPresetDuration(3);
+        }
+    };
+
+    // ⭐️ 과정 수정 처리
+    const confirmEditCourse = async () => {
+        if (!editCourseData) return;
+
+        let newExpiresAt: string;
+
+        if (durationType === 'preset') {
+            const expireDate = new Date();
+            expireDate.setMonth(expireDate.getMonth() + (presetDuration || 3));
+            newExpiresAt = expireDate.toISOString();
+        } else {
+            if (!customEndDate) {
+                alert('만료일을 선택해주세요.');
+                return;
+            }
+            // 해당 날짜의 23:59:59로 설정
+            const endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
+            newExpiresAt = endDate.toISOString();
+        }
+
+        try {
+            await AuthService.modifyCourseExpiration(editCourseData.userId, editCourseData.courseName, newExpiresAt);
+            alert('수강 기간이 수정되었습니다.');
+            loadUsers();
+            setShowEditCourseModal(false);
+        } catch (e) {
+            alert('수정 중 오류가 발생했습니다.');
+        }
+    };
+
+    // ⭐️ 과정 삭제 처리
+    const handleDeleteCourse = async (userId: string, courseName: string, userName: string) => {
+        if (confirm(`${userName} 님의 "${courseName}" 수강 내역을 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) {
+            try {
+                await AuthService.revokeCourse(userId, courseName);
+                alert('수강 내역이 삭제되었습니다.');
+                loadUsers();
+            } catch (e) {
+                alert('삭제 중 오류가 발생했습니다.');
+            }
+        }
+    };
+
     const runEdit = (user: TypeUser) => {
         setEditingUser(user);
         setEditForm({
@@ -123,16 +190,28 @@ export const UserManagement = () => {
     };
 
     // ⭐️ Updated Filtering Logic
+    // ⭐️ Updated Filtering Logic
     const filteredUsers = users.filter(user => {
+        // console.log(`Filter Check: User=${user.name}, Approved=${user.approved}, Pending=${user.pendingCourses?.length}, Filter=${filter}`);
+
         if (filter === 'pendingSignup') return !user.approved;
-        if (filter === 'pendingCourse') return user.approved && user.pendingCourses && user.pendingCourses.length > 0;
-        if (filter === 'active') return user.approved && (!user.pendingCourses || user.pendingCourses.length === 0);
+
+        if (filter === 'pendingCourse') {
+            return user.approved && user.pendingCourses && user.pendingCourses.length > 0;
+        }
+
+        if (filter === 'active') {
+            // Must return true for ANY approved user, regardless of pending courses
+            return user.approved === true;
+        }
+
         return true;
     });
 
     // ⭐️ Counts
     const pendingSignupCount = users.filter(u => !u.approved).length;
     const pendingCourseCount = users.filter(u => u.approved && u.pendingCourses && u.pendingCourses.length > 0).length;
+    const activeUserCount = users.filter(u => u.approved).length;
 
     useEffect(() => {
         setCurrentPage(1);
@@ -216,7 +295,7 @@ export const UserManagement = () => {
                             boxShadow: filter === 'active' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
                         }}
                     >
-                        정상 이용 ({users.length - pendingSignupCount - pendingCourseCount})
+                        정상 이용 ({activeUserCount})
                     </button>
                 </div>
             </div>
@@ -324,18 +403,38 @@ export const UserManagement = () => {
                                                                 fontWeight: 500,
                                                                 border: `1px solid ${isExpired ? '#fecaca' : '#bbf7d0'}`,
                                                                 display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: '0.25rem'
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                gap: '1rem',
+                                                                minWidth: '200px'
                                                             }}>
-                                                                <div style={{ fontWeight: 600 }}>{enrollment.courseName}</div>
-                                                                <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                                                                    {enrollment.expiresAt ? (
-                                                                        isExpired ?
-                                                                            `❌ 만료됨 (${new Date(enrollment.expiresAt).toLocaleDateString()})` :
-                                                                            daysRemaining !== null && daysRemaining <= 7 ?
-                                                                                `⚠️ ${daysRemaining}일 남음` :
-                                                                                `📅 ${new Date(enrollment.expiresAt).toLocaleDateString()}까지`
-                                                                    ) : '♾️ 무제한'}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                                                                    <div style={{ fontWeight: 600 }}>{enrollment.courseName}</div>
+                                                                    <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                                                                        {enrollment.expiresAt ? (
+                                                                            isExpired ?
+                                                                                `❌ 만료됨 (${new Date(enrollment.expiresAt).toLocaleDateString()})` :
+                                                                                daysRemaining !== null && daysRemaining <= 7 ?
+                                                                                    `⚠️ ${daysRemaining}일 남음` :
+                                                                                    `📅 ${new Date(enrollment.expiresAt).toLocaleDateString()}까지`
+                                                                        ) : '♾️ 무제한'}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                                    <button
+                                                                        onClick={() => handleEditCourse(user.id, enrollment.courseName, user.name, enrollment.expiresAt)}
+                                                                        title="기간 수정"
+                                                                        style={{ padding: '0.25rem', background: 'rgba(255,255,255,0.5)', borderRadius: '0.25rem', cursor: 'pointer', border: 'none', color: 'inherit' }}
+                                                                    >
+                                                                        <Edit size={14} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteCourse(user.id, enrollment.courseName, user.name)}
+                                                                        title="수강 취소/삭제"
+                                                                        style={{ padding: '0.25rem', background: 'rgba(255,255,255,0.5)', borderRadius: '0.25rem', cursor: 'pointer', border: 'none', color: '#dc2626' }}
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         );
@@ -459,254 +558,361 @@ export const UserManagement = () => {
             </div>
 
             {/* ⭐️ Course Approval Modal */}
-            {showCourseModal && approvalData && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '1rem'
-                }} onClick={() => setShowCourseModal(false)}>
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: 'white',
-                            width: '90%',
-                            maxWidth: '500px',
-                            borderRadius: '1rem',
-                            padding: '2rem',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                    >
-                        {/* Header */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-                                        과정 승인
-                                    </h3>
-                                    <p style={{ color: 'var(--slate-600)', fontSize: '0.9rem' }}>
-                                        <strong>{approvalData.userName}</strong> 님의 <strong>"{approvalData.courseName}"</strong> 과정
-                                    </p>
+            {
+                showCourseModal && approvalData && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '1rem'
+                    }} onClick={() => setShowCourseModal(false)}>
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                background: 'white',
+                                width: '90%',
+                                maxWidth: '500px',
+                                borderRadius: '1rem',
+                                padding: '2rem',
+                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                            }}
+                        >
+                            {/* Header */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                                            과정 승인
+                                        </h3>
+                                        <p style={{ color: 'var(--slate-600)', fontSize: '0.9rem' }}>
+                                            <strong>{approvalData.userName}</strong> 님의 <strong>"{approvalData.courseName}"</strong> 과정
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowCourseModal(false)}
+                                        style={{ padding: '0.5rem', borderRadius: '0.5rem', background: '#f3f4f6' }}
+                                    >
+                                        <X size={20} />
+                                    </button>
                                 </div>
+                            </div>
+
+                            {/* Duration Type */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
+                                    수강 기간 설정 방식
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        onClick={() => setDurationType('preset')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.75rem',
+                                            borderRadius: '0.5rem',
+                                            border: `2px solid ${durationType === 'preset' ? 'var(--primary-600)' : '#e5e7eb'}`,
+                                            background: durationType === 'preset' ? 'var(--primary-50)' : 'white',
+                                            color: durationType === 'preset' ? 'var(--primary-600)' : '#6b7280',
+                                            fontWeight: 600,
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        📋 프리셋 선택
+                                    </button>
+                                    <button
+                                        onClick={() => setDurationType('custom')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.75rem',
+                                            borderRadius: '0.5rem',
+                                            border: `2px solid ${durationType === 'custom' ? 'var(--primary-600)' : '#e5e7eb'}`,
+                                            background: durationType === 'custom' ? 'var(--primary-50)' : 'white',
+                                            color: durationType === 'custom' ? 'var(--primary-600)' : '#6b7280',
+                                            fontWeight: 600,
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        📅 직접 선택
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preset Duration */}
+                            {durationType === 'preset' && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
+                                        기간 선택
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                                        {durationPresets.map(preset => (
+                                            <button
+                                                key={preset.label}
+                                                onClick={() => setPresetDuration(preset.value)}
+                                                style={{
+                                                    padding: '0.75rem 0.5rem',
+                                                    borderRadius: '0.5rem',
+                                                    border: `2px solid ${presetDuration === preset.value ? 'var(--primary-600)' : '#e5e7eb'}`,
+                                                    background: presetDuration === preset.value ? 'var(--primary-600)' : 'white',
+                                                    color: presetDuration === preset.value ? 'white' : '#6b7280',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.875rem',
+                                                    textAlign: 'center'
+                                                }}
+                                            >
+                                                {preset.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Custom Date */}
+                            {durationType === 'custom' && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
+                                        <Calendar size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                                        만료일 선택
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        min={minDate}
+                                        className="input-field"
+                                        style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+                                    />
+                                    {customEndDate && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#eff6ff', borderRadius: '0.5rem', fontSize: '0.875rem', color: '#1e40af' }}>
+                                            ℹ️ 선택한 날짜: <strong>{new Date(customEndDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button
+                                    onClick={confirmApproval}
+                                    className="btn btn-primary"
+                                    style={{ flex: 1, padding: '0.75rem', fontSize: '1rem', fontWeight: 600 }}
+                                >
+                                    승인하기
+                                </button>
                                 <button
                                     onClick={() => setShowCourseModal(false)}
-                                    style={{ padding: '0.5rem', borderRadius: '0.5rem', background: '#f3f4f6' }}
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1, padding: '0.75rem', fontSize: '1rem', fontWeight: 600 }}
                                 >
-                                    <X size={20} />
+                                    취소
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Duration Type */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
-                                수강 기간 설정 방식
-                            </label>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button
-                                    onClick={() => setDurationType('preset')}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.75rem',
-                                        borderRadius: '0.5rem',
-                                        border: `2px solid ${durationType === 'preset' ? 'var(--primary-600)' : '#e5e7eb'}`,
-                                        background: durationType === 'preset' ? 'var(--primary-50)' : 'white',
-                                        color: durationType === 'preset' ? 'var(--primary-600)' : '#6b7280',
-                                        fontWeight: 600,
-                                        fontSize: '0.9rem'
-                                    }}
-                                >
-                                    📋 프리셋 선택
-                                </button>
-                                <button
-                                    onClick={() => setDurationType('custom')}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.75rem',
-                                        borderRadius: '0.5rem',
-                                        border: `2px solid ${durationType === 'custom' ? 'var(--primary-600)' : '#e5e7eb'}`,
-                                        background: durationType === 'custom' ? 'var(--primary-50)' : 'white',
-                                        color: durationType === 'custom' ? 'var(--primary-600)' : '#6b7280',
-                                        fontWeight: 600,
-                                        fontSize: '0.9rem'
-                                    }}
-                                >
-                                    📅 직접 선택
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Preset Duration */}
-                        {durationType === 'preset' && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
-                                    기간 선택
-                                </label>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
-                                    {durationPresets.map(preset => (
-                                        <button
-                                            key={preset.label}
-                                            onClick={() => setPresetDuration(preset.value)}
-                                            style={{
-                                                padding: '0.75rem 0.5rem',
-                                                borderRadius: '0.5rem',
-                                                border: `2px solid ${presetDuration === preset.value ? 'var(--primary-600)' : '#e5e7eb'}`,
-                                                background: presetDuration === preset.value ? 'var(--primary-600)' : 'white',
-                                                color: presetDuration === preset.value ? 'white' : '#6b7280',
-                                                fontWeight: 600,
-                                                fontSize: '0.875rem',
-                                                textAlign: 'center'
-                                            }}
-                                        >
-                                            {preset.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Custom Date */}
-                        {durationType === 'custom' && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#334155' }}>
-                                    <Calendar size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                                    만료일 선택
-                                </label>
-                                <input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                    min={minDate}
-                                    className="input-field"
-                                    style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-                                />
-                                {customEndDate && (
-                                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#eff6ff', borderRadius: '0.5rem', fontSize: '0.875rem', color: '#1e40af' }}>
-                                        ℹ️ 선택한 날짜: <strong>{new Date(customEndDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Actions */}
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button
-                                onClick={confirmApproval}
-                                className="btn btn-primary"
-                                style={{ flex: 1, padding: '0.75rem', fontSize: '1rem', fontWeight: 600 }}
-                            >
-                                승인하기
-                            </button>
-                            <button
-                                onClick={() => setShowCourseModal(false)}
-                                className="btn btn-secondary"
-                                style={{ flex: 1, padding: '0.75rem', fontSize: '1rem', fontWeight: 600 }}
-                            >
-                                취소
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Edit User Modal */}
-            {editingUser && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '1rem'
-                }} onClick={() => setEditingUser(null)}>
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: 'white',
-                            width: '90%',
-                            maxWidth: '500px',
-                            borderRadius: '1rem',
-                            padding: '2rem'
-                        }}
-                    >
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem' }}>사용자 수정</h3>
+            {
+                editingUser && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '1rem'
+                    }} onClick={() => setEditingUser(null)}>
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                background: 'white',
+                                width: '90%',
+                                maxWidth: '500px',
+                                borderRadius: '1rem',
+                                padding: '2rem'
+                            }}
+                        >
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem' }}>사용자 수정</h3>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>이름</label>
-                                <input
-                                    type="text"
-                                    value={editForm.name}
-                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                    className="input-field"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>이메일</label>
-                                <input
-                                    type="email"
-                                    value={editForm.email}
-                                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                    className="input-field"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>전화번호</label>
-                                <input
-                                    type="tel"
-                                    value={editForm.phone}
-                                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                    className="input-field"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>역할</label>
-                                <select
-                                    value={editForm.role}
-                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'student' | 'admin' })}
-                                    className="input-field"
-                                    style={{ width: '100%' }}
-                                >
-                                    <option value="student">수강생</option>
-                                    <option value="admin">관리자</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>이름</label>
                                     <input
-                                        type="checkbox"
-                                        checked={editForm.approved}
-                                        onChange={(e) => setEditForm({ ...editForm, approved: e.target.checked })}
+                                        type="text"
+                                        value={editForm.name}
+                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                        className="input-field"
+                                        style={{ width: '100%' }}
                                     />
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>승인됨</span>
-                                </label>
-                            </div>
+                                </div>
 
-                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                                <button
-                                    onClick={handleSaveEdit}
-                                    className="btn btn-primary"
-                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                                >
-                                    <Save size={16} /> 저장
-                                </button>
-                                <button
-                                    onClick={() => setEditingUser(null)}
-                                    className="btn btn-secondary"
-                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                                >
-                                    <X size={16} /> 취소
-                                </button>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>이메일</label>
+                                    <input
+                                        type="email"
+                                        value={editForm.email}
+                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                        className="input-field"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>전화번호</label>
+                                    <input
+                                        type="tel"
+                                        value={editForm.phone}
+                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                        className="input-field"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>역할</label>
+                                    <select
+                                        value={editForm.role}
+                                        onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'student' | 'admin' })}
+                                        className="input-field"
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="student">수강생</option>
+                                        <option value="admin">관리자</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={editForm.approved}
+                                            onChange={(e) => setEditForm({ ...editForm, approved: e.target.checked })}
+                                        />
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>승인됨</span>
+                                    </label>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                                    <button
+                                        onClick={handleSaveEdit}
+                                        className="btn btn-primary"
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                                    >
+                                        <Save size={16} /> 저장
+                                    </button>
+                                    <button
+                                        onClick={() => setEditingUser(null)}
+                                        className="btn btn-secondary"
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                                    >
+                                        <X size={16} /> 취소
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+            {/* Edit Course Modal */}
+            {
+                showEditCourseModal && editCourseData && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                    }}>
+                        <div style={{ background: 'white', borderRadius: '1rem', width: '90%', maxWidth: '500px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>수강 기간 수정</div>
+                                <button onClick={() => setShowEditCourseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                    <X size={24} color="#64748b" />
+                                </button>
+                            </div>
+                            <div style={{ padding: '1.5rem' }}>
+                                <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>대상 사용자 / 과정</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 600 }}>{editCourseData.userName} / {editCourseData.courseName}</div>
+                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        현재 만료일: {editCourseData.currentExpiresAt ? new Date(editCourseData.currentExpiresAt).toLocaleDateString() : '무제한'}
+                                    </div>
+                                </div>
+
+                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>기간 설정</label>
+                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            checked={durationType === 'preset'}
+                                            onChange={() => setDurationType('preset')}
+                                        />
+                                        <span>기간 추가 (월)</span>
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            checked={durationType === 'custom'}
+                                            onChange={() => setDurationType('custom')}
+                                        />
+                                        <span>날짜 지정</span>
+                                    </label>
+                                </div>
+
+                                {durationType === 'preset' ? (
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            {durationPresets.map(preset => (
+                                                <button
+                                                    key={preset.value || 'unlimited'}
+                                                    onClick={() => setPresetDuration(preset.value)}
+                                                    style={{
+                                                        padding: '0.5rem 1rem',
+                                                        borderRadius: '0.5rem',
+                                                        border: `1px solid ${presetDuration === preset.value ? 'var(--primary-600)' : '#e2e8f0'}`,
+                                                        background: presetDuration === preset.value ? 'var(--primary-50)' : 'white',
+                                                        color: presetDuration === preset.value ? 'var(--primary-700)' : '#64748b',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 500,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {preset.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
+                                            * 현재 시점으로부터 선택한 개월 수 만큼 연장된 날짜로 설정됩니다.
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            min={minDate}
+                                            onChange={(e) => setCustomEndDate(e.target.value)}
+                                            className="input-field"
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                    <button
+                                        onClick={confirmEditCourse}
+                                        className="btn btn-primary"
+                                        style={{ flex: 1 }}
+                                    >
+                                        수정 완료
+                                    </button>
+                                    <button
+                                        onClick={() => setShowEditCourseModal(false)}
+                                        className="btn btn-secondary"
+                                        style={{ flex: 1 }}
+                                    >
+                                        취소
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };

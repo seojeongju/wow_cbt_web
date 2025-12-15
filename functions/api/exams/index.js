@@ -8,10 +8,10 @@ export async function onRequestGet(context) {
         let query = `
             SELECT 
                 e.*,
-                c.name as course_name,
+                COALESCE(c.name, e.course_id) as course_name,
                 COUNT(DISTINCT q.id) as question_count
             FROM exams e
-            JOIN courses c ON e.course_id = c.id
+            LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN questions q ON e.id = q.exam_id
         `;
 

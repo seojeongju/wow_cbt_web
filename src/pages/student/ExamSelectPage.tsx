@@ -48,28 +48,44 @@ export const ExamSelectPage = () => {
                 return;
             }
 
-            // Get active course names
-            const activeCourseNames = (user.courseEnrollments || [])
+            // Get active enrollments (both ID and Name)
+            const activeEnrollments = (user.courseEnrollments || [])
                 .filter(enrollment => {
                     if (enrollment.status === 'expired') return false;
                     if (enrollment.expiresAt && new Date(enrollment.expiresAt) < new Date()) return false;
-                    return enrollment.status === 'active';
-                })
-                .map(e => e.courseName);
+                    return enrollment.status === 'active' || enrollment.status === 'approved';
+                });
 
-            console.log('✅ Active courses:', activeCourseNames);
+            const activeNames = activeEnrollments.map(e => e.courseName);
+            const activeIds = activeEnrollments.map(e => e.courseId);
 
-            // Filter exams by active courses
-            let filteredExams = allExams.filter(exam =>
-                activeCourseNames.includes(exam.courseName || '')
-            );
+            console.log('✅ Active Enrollment Names:', activeNames);
+            console.log('✅ Active Enrollment IDs:', activeIds);
 
-            console.log('🎯 Filtered exams (by enrollment):', filteredExams.length);
+            // Filter exams by active courses (Check if exam course matches Name OR ID)
+            let filteredExams = allExams.filter(exam => {
+                const examCourse = (exam.courseName || '').trim();
+                const matchesName = activeNames.includes(examCourse);
+                const matchesId = activeIds.includes(examCourse);
+                return matchesName || matchesId;
+            });
 
-            // Apply course filter if present
+            console.log('🎯 Filtered by active enrollment:', filteredExams.length);
+
+            // Apply specific course filter if present
             if (courseFilter) {
-                filteredExams = filteredExams.filter(exam => exam.courseName === courseFilter);
-                console.log(`🔎 Filtered by "${courseFilter}":`, filteredExams.length);
+                const targetCourseName = courseFilter.trim();
+
+                // Find ID for this course name
+                const targetEnrollment = activeEnrollments.find(e => e.courseName === targetCourseName);
+                const targetCourseId = targetEnrollment?.courseId;
+
+                filteredExams = filteredExams.filter(exam => {
+                    const examCourse = (exam.courseName || '').trim();
+                    return examCourse === targetCourseName || (targetCourseId && examCourse === targetCourseId);
+                });
+
+                console.log(`🔎 Filtered by specific course "${targetCourseName}" (ID: ${targetCourseId}):`, filteredExams.length);
             }
 
             setExams(filteredExams);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { Exam } from '../../types';
@@ -15,7 +15,7 @@ export const ExamPlayer = () => {
     const [exam, setExam] = useState<Exam | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentIdx, setCurrentIdx] = useState(0);
-    const [answers, setAnswers] = useState<{ [key: string]: number }>({});
+    const [answers, setAnswers] = useState<{ [key: string]: number | string }>({});
     const [showResult, setShowResult] = useState(false);
 
     // Load Exam Data
@@ -48,10 +48,10 @@ export const ExamPlayer = () => {
     if (loading) return <div className="flex-center" style={{ height: '100vh' }}>시험지를 가져오는 중입니다...</div>;
     if (!exam) return null;
 
-    const handleAnswer = (optionIdx: number) => {
+    const handleAnswer = (answer: number | string) => {
         setAnswers(prev => ({
             ...prev,
-            [exam.questions[currentIdx].id]: optionIdx
+            [exam.questions[currentIdx].id]: answer
         }));
     };
 
@@ -67,7 +67,10 @@ export const ExamPlayer = () => {
         if (window.confirm('시험을 종료하고 답안을 제출하시겠습니까?')) {
             try {
                 const score = exam.questions.reduce((acc, q) => {
-                    return acc + (answers[q.id] === q.correctAnswer ? 1 : 0);
+                    const isCorrect = typeof q.correctAnswer === 'number'
+                        ? answers[q.id] === q.correctAnswer
+                        : (answers[q.id] as string)?.trim() === (q.correctAnswer as unknown as string)?.trim();
+                    return acc + (isCorrect ? 1 : 0);
                 }, 0);
 
                 await ExamService.submitExamResult(exam.id, answers, score);
@@ -79,9 +82,19 @@ export const ExamPlayer = () => {
         }
     };
 
+    // New Exit Handler
+    const handleExit = () => {
+        if (window.confirm('시험을 종료하고 나가시겠습니까?\n작성 중인 답안은 저장되지 않습니다.')) {
+            navigate('/student/dashboard');
+        }
+    };
+
     if (showResult) {
         const score = exam.questions.reduce((acc, q) => {
-            return acc + (answers[q.id] === q.correctAnswer ? 1 : 0);
+            const isCorrect = typeof q.correctAnswer === 'number'
+                ? answers[q.id] === q.correctAnswer
+                : (answers[q.id] as string)?.trim() === (q.correctAnswer as unknown as string)?.trim();
+            return acc + (isCorrect ? 1 : 0);
         }, 0);
         return (
             <div className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column' }}>
@@ -103,8 +116,24 @@ export const ExamPlayer = () => {
             {/* Header - Custom for Exam (No Layout) */}
             <header style={{ background: 'white', borderBottom: '1px solid var(--slate-200)', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 10 }}>
                 <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>
-                        {exam.title}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button
+                            onClick={handleExit}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.25rem',
+                                border: 'none', background: 'transparent',
+                                color: 'var(--slate-500)', fontSize: '0.9rem', cursor: 'pointer',
+                                padding: '0.5rem', borderRadius: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--slate-100)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <LogOut size={18} /> 나가기
+                        </button>
+                        <div style={{ width: '1px', height: '20px', background: 'var(--slate-200)' }} />
+                        <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>
+                            {exam.title}
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <Timer initialTime={exam.timeLimit} onTimeUp={() => alert('시간 종료!')} />
@@ -130,9 +159,12 @@ export const ExamPlayer = () => {
                             <span style={{ background: 'var(--slate-100)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--slate-600)' }}>
                                 {currentIdx + 1}번
                             </span>
-                            <span style={{ background: 'var(--primary-50)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-700)' }}>
-                                {question.category}
-                            </span>
+                            {/* Hide 'AI 추출' badge if category matches */}
+                            {question.category !== 'AI 추출' && (
+                                <span style={{ background: 'var(--primary-50)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-700)' }}>
+                                    {question.category}
+                                </span>
+                            )}
                         </div>
 
                         {/* Question Text */}
@@ -147,37 +179,57 @@ export const ExamPlayer = () => {
                             </div>
                         )}
 
-                        {/* Options */}
+                        {/* Options or Subjective Input */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {question.options.map((option, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => handleAnswer(idx)}
-                                    style={{
-                                        padding: '1rem 1.25rem',
-                                        borderRadius: '0.75rem',
-                                        border: answers[question.id] === idx ? '2px solid var(--primary-600)' : '1px solid var(--slate-200)',
-                                        background: answers[question.id] === idx ? 'var(--primary-50)' : 'white',
-                                        color: answers[question.id] === idx ? 'var(--primary-800)' : 'var(--text-main)',
-                                        textAlign: 'left',
-                                        fontSize: '1.1rem',
-                                        display: 'flex', alignItems: 'center', gap: '1rem',
-                                        transition: 'all 0.1s'
-                                    }}
-                                >
-                                    <span style={{
-                                        width: '28px', height: '28px', borderRadius: '50%',
-                                        border: `2px solid ${answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-300)'}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '0.9rem', fontWeight: 700,
-                                        color: answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-400)',
-                                        flexShrink: 0
-                                    }}>
-                                        {idx + 1}
-                                    </span>
-                                    {option}
-                                </button>
-                            ))}
+                            {question.options && question.options.length > 0 ? (
+                                question.options.map((option, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleAnswer(idx)}
+                                        style={{
+                                            padding: '1rem 1.25rem',
+                                            borderRadius: '0.75rem',
+                                            border: answers[question.id] === idx ? '2px solid var(--primary-600)' : '1px solid var(--slate-200)',
+                                            background: answers[question.id] === idx ? 'var(--primary-50)' : 'white',
+                                            color: answers[question.id] === idx ? 'var(--primary-800)' : 'var(--text-main)',
+                                            textAlign: 'left',
+                                            fontSize: '1.1rem',
+                                            display: 'flex', alignItems: 'center', gap: '1rem',
+                                            transition: 'all 0.1s'
+                                        }}
+                                    >
+                                        <span style={{
+                                            width: '28px', height: '28px', borderRadius: '50%',
+                                            border: `2px solid ${answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-300)'}`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '0.9rem', fontWeight: 700,
+                                            color: answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-400)',
+                                            flexShrink: 0
+                                        }}>
+                                            {idx + 1}
+                                        </span>
+                                        {option}
+                                    </button>
+                                ))
+                            ) : (
+                                <div style={{ marginTop: '1rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>주관식 정답 입력</label>
+                                    <textarea
+                                        value={(answers[question.id] as string) || ''}
+                                        onChange={(e) => handleAnswer(e.target.value)}
+                                        placeholder="정답을 입력하세요"
+                                        style={{
+                                            width: '100%',
+                                            padding: '1rem',
+                                            borderRadius: '0.75rem',
+                                            border: '1px solid var(--slate-200)',
+                                            fontSize: '1.1rem',
+                                            minHeight: '120px',
+                                            resize: 'vertical'
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </motion.div>
 
@@ -203,11 +255,10 @@ export const ExamPlayer = () => {
 
                 {/* Right: OMR */}
                 <OMRGrid
-                    total={exam.questions.length}
+                    questions={exam.questions}
                     answers={answers}
                     current={currentIdx}
                     onJump={setCurrentIdx}
-                    questionIds={exam.questions.map(q => q.id)}
                 />
 
             </main>

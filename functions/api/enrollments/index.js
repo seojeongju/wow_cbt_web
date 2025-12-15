@@ -13,12 +13,18 @@ export async function onRequestPost(context) {
             }), { status: 400 });
         }
 
+        // Ensure clean data types
+        const cleanUserId = String(userId).trim();
+        // Keep courseId as comes (likely number or string), let SQLite handle loose typing for ID but created_at is explicit
+
         // Check if already enrolled
         const existing = await env.DB.prepare(
             'SELECT * FROM course_enrollments WHERE user_id = ? AND course_id = ?'
-        ).bind(userId, courseId).first();
+        ).bind(cleanUserId, courseId).first();
 
         if (existing) {
+            // If already exists but status is something weird, maybe update?
+            // For now, just return conflict behavior
             return new Response(JSON.stringify({
                 success: false,
                 message: '이미 신청했거나 수강 중인 과정입니다.'
@@ -33,11 +39,11 @@ export async function onRequestPost(context) {
         const requireApproval = setting ? setting.value === 'true' : true;
         const status = requireApproval ? 'pending' : 'active'; // active if no approval needed
 
-        // Insert enrollment
+        // Insert enrollment with explicit created_at
         const enrollmentId = `enroll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         await env.DB.prepare(
-            'INSERT INTO course_enrollments (id, user_id, course_id, status) VALUES (?, ?, ?, ?)'
-        ).bind(enrollmentId, userId, courseId, status).run();
+            'INSERT INTO course_enrollments (id, user_id, course_id, status, created_at) VALUES (?, ?, ?, ?, datetime("now"))'
+        ).bind(enrollmentId, cleanUserId, courseId, status).run();
 
         return new Response(JSON.stringify({
             success: true,

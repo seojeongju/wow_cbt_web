@@ -1682,7 +1682,10 @@ export const QuestionManagement = () => {
                                 <input
                                     type="number"
                                     value={newExamData.timeLimit}
-                                    onChange={(e) => setNewExamData({ ...newExamData, timeLimit: parseInt(e.target.value) || 60 })}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        setNewExamData({ ...newExamData, timeLimit: parseInt(e.target.value) || 60 });
+                                    }}
                                     min="1"
                                     max="240"
                                     style={{

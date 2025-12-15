@@ -13,7 +13,8 @@ const mapUser = (data: any): User => {
         courseEnrollments: data.courseEnrollments || [],
         pendingCourses: data.pendingCourses || [],
         createdAt: data.created_at || data.createdAt,
-        lastLoginAt: data.last_login_at || data.lastLoginAt
+        lastLoginAt: data.last_login_at || data.lastLoginAt,
+        debug: data.debug // Pass through debug info
     };
 };
 
@@ -29,6 +30,32 @@ export const AuthService = {
             console.error('getAllUsers error:', error);
             return [];
         }
+    },
+
+    // Get Single User (for fresh data)
+    getUserById: async (id: string): Promise<User | null> => {
+        try {
+            const response = await fetch(`/api/users/${id}`);
+            if (!response.ok) throw new Error('Failed to fetch user');
+            const data = await response.json();
+            return mapUser(data.user);
+        } catch (error) {
+            console.error('getUserById error:', error);
+            return null;
+        }
+    },
+
+    // Refresh Session from Server
+    refreshSession: async (): Promise<User | null> => {
+        const localUser = AuthService.getCurrentUser();
+        if (!localUser) return null;
+
+        const freshUser = await AuthService.getUserById(localUser.id);
+        if (freshUser) {
+            localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(freshUser));
+            return freshUser;
+        }
+        return localUser;
     },
 
     // Get current user from session (localStorage cache)
@@ -228,6 +255,36 @@ export const AuthService = {
             });
         } catch (error) {
             console.error('Reject course error:', error);
+        }
+    },
+
+    // Modify Course Expiration
+    modifyCourseExpiration: async (userId: string, courseName: string, expiresAt: string): Promise<void> => {
+        try {
+            const res = await fetch(`/api/users/${userId}/courses`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId: courseName, expiresAt })
+            });
+            if (!res.ok) throw new Error('Failed to modify');
+        } catch (error) {
+            console.error('Modify course error:', error);
+            throw error;
+        }
+    },
+
+    // Revoke Course Access (Delete)
+    revokeCourse: async (userId: string, courseName: string): Promise<void> => {
+        try {
+            const res = await fetch(`/api/users/${userId}/courses`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId: courseName })
+            });
+            if (!res.ok) throw new Error('Failed to revoke');
+        } catch (error) {
+            console.error('Revoke course error:', error);
+            throw error;
         }
     }
 };

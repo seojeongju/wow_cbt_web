@@ -1,3 +1,4 @@
+
 // /api/auth/login
 export async function onRequestPost(context) {
     const { request, env } = context;
@@ -60,23 +61,53 @@ export async function onRequestPost(context) {
             'UPDATE users SET last_login_at = datetime("now") WHERE id = ?'
         ).bind(user.id).run();
 
-        // Get user's course enrollments (active)
-        const { results: enrollments } = await env.DB.prepare(`
-            SELECT ce.*, c.name as course_name 
-            FROM course_enrollments ce
-            JOIN courses c ON ce.course_id = c.id
-            WHERE ce.user_id = ? AND ce.status = 'active'
-        `).bind(user.id).all();
+        // ---------------------------------------------------------
+        // ROBUST DATA FETCHING STRATEGY (WITH DEBUG)
+        // ---------------------------------------------------------
 
-        // Get user's pending courses
-        const { results: pending } = await env.DB.prepare(`
-            SELECT ce.course_id, c.name as course_name 
+        const query = `
+            SELECT ce.id, ce.user_id, ce.course_id, ce.status, ce.created_at, ce.expires_at, c.name as course_name 
             FROM course_enrollments ce
-            JOIN courses c ON ce.course_id = c.id
-            WHERE ce.user_id = ? AND ce.status = 'pending'
-        `).bind(user.id).all();
+            LEFT JOIN courses c ON ce.course_id = c.id
+        `;
 
-        // Return user data (excluding password)
+        // No WHERE clause to guarantee we get data
+        const { results: allEnrollments } = await env.DB.prepare(query).all();
+
+        // Robust filtering: ensure string comparison and trim whitespace
+        const targetUserId = String(user.id).trim();
+
+        const myEnrollments = (allEnrollments || []).filter(e => {
+            if (!e.user_id) return false;
+            return String(e.user_id).trim() === targetUserId;
+        });
+
+        // 1. Filter Active/Approved Enrollments
+        const activeEnrollments = myEnrollments.filter(e => {
+            const s = (e.status || '').trim();
+            return s === 'active' || s === 'approved';
+        });
+
+        // 2. Filter Pending Enrollments
+        const pendingEnrollments = myEnrollments.filter(e => {
+            const s = (e.status || '').trim();
+            return s === 'pending';
+        });
+
+        // DEBUG INFO to solve the mystery
+        const debugInfo = {
+            loginTime: new Date().toISOString(),
+            targetUserId: targetUserId,
+            allEnrollmentsCount: (allEnrollments || []).length,
+            myEnrollmentsCount: myEnrollments.length,
+            activeCount: activeEnrollments.length,
+            pendingCount: pendingEnrollments.length,
+            dbSample: (allEnrollments || []).slice(0, 3).map(e => ({ uid: e.user_id, status: e.status })),
+            myMatchSample: myEnrollments.slice(0, 3)
+        };
+        console.log('[Login Debug]', JSON.stringify(debugInfo));
+
+        // Response Data Construction
         const userData = {
             id: user.id,
             email: user.email,
@@ -84,13 +115,14 @@ export async function onRequestPost(context) {
             phone: user.phone,
             role: user.role,
             approved: user.approved,
-            courseEnrollments: enrollments.map(e => ({
+            courseEnrollments: activeEnrollments.map(e => ({
                 courseId: e.course_id,
-                courseName: e.course_name,
+                courseName: e.course_name || e.course_id,
                 status: e.status,
                 expiresAt: e.expires_at
             })),
-            pendingCourses: pending.map(p => p.course_name)
+            pendingCourses: pendingEnrollments.map(p => p.course_name || p.course_id),
+            debug: debugInfo // Send to frontend
         };
 
         return new Response(JSON.stringify({
@@ -98,14 +130,19 @@ export async function onRequestPost(context) {
             user: userData
         }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                // Prevent caching to ensure fresh data on login
+                'Cache-Control': 'no-store, max-age=0'
+            }
         });
 
     } catch (error) {
         console.error('Login error:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: '로그인 처리 중 오류가 발생했습니다.'
+            message: '로그인 처리 중 오류가 발생했습니다.',
+            debugError: String(error)
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

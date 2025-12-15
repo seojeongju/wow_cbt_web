@@ -3,7 +3,11 @@ import { AuthService } from '../services/authService';
 import { useEffect, useState } from 'react';
 import { User } from '../types';
 
-export const MainLayout = ({ children }: { children: React.ReactNode }) => {
+interface MainLayoutProps {
+    children: React.ReactNode;
+}
+
+export const MainLayout = ({ children }: MainLayoutProps) => {
     const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
 
@@ -28,7 +32,7 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
                     >
                         <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '24px' }} />
                         <span style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--slate-900)' }}>
-                            WOW<span style={{ color: 'var(--primary-600)' }}>CBT</span>
+                            WOW3D<span style={{ color: 'var(--primary-600)' }}>-CBT</span>
                         </span>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

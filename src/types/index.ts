@@ -36,9 +36,10 @@ export interface Course {
 }
 
 export interface CourseEnrollment {
+    courseId?: string; // Often we only have name, but sometimes ID
     courseName: string;
     enrolledAt: string;
-    status: 'pending' | 'active' | 'rejected' | 'expired';
+    status: 'pending' | 'active' | 'rejected' | 'expired' | 'approved';
     expiresAt?: string;
 }
 
@@ -54,6 +55,7 @@ export interface User {
     lastLoginAt?: string;
     approved?: boolean;
     pendingCourses?: any[];
+    debug?: any; // For debugging purposes
 }
 
 export interface ExamResult {

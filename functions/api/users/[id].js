@@ -1,3 +1,75 @@
+// GET /api/users/[id] - Get single user with details
+export async function onRequestGet(context) {
+    const { env, params } = context;
+    const userId = params.id;
+
+    try {
+        const user = await env.DB.prepare(`
+            SELECT id, email, name, phone, role, approved, last_login_at, created_at
+            FROM users WHERE id = ?
+        `).bind(userId).first();
+
+        if (!user) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'User not found'
+            }), { status: 404 });
+        }
+
+        const { results: enrollments } = await env.DB.prepare(`
+            SELECT 
+                ce.course_id, ce.status, ce.expires_at,
+                c.name as course_name_from_db
+            FROM course_enrollments ce
+            LEFT JOIN courses c ON ce.course_id = c.id
+            WHERE ce.user_id = ?
+        `).bind(userId).all();
+
+        const approvedCourses = [];
+        const pendingCourses = [];
+
+        enrollments.forEach(e => {
+            const enrollment = {
+                courseId: e.course_id,
+                courseName: e.course_name_from_db || e.course_id, // Fallback to ID if name join failed
+                status: e.status,
+                expiresAt: e.expires_at
+            };
+
+            if (e.status === 'active' || e.status === 'approved') {
+                approvedCourses.push(enrollment);
+            } else if (e.status === 'pending') {
+                // Return full object for pending courses if possible, but frontend expects string[]?
+                // Looking at frontend AuthService: pendingCourses: data.pendingCourses || []
+                // If data.pendingCourses is string[], we should push string.
+                // But let's check frontend usage.
+                pendingCourses.push(enrollment.courseName);
+            }
+        });
+
+        const userWithDetails = {
+            ...user,
+            approved: Boolean(user.approved),
+            courseEnrollments: approvedCourses,
+            pendingCourses: pendingCourses
+        };
+
+        return new Response(JSON.stringify({
+            success: true,
+            user: userWithDetails
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+    } catch (error) {
+        return new Response(JSON.stringify({
+            success: false,
+            message: 'Error fetching user'
+        }), { status: 500 });
+    }
+}
+
 // PUT /api/users/[id] - Update user
 export async function onRequestPut(context) {
     const { request, env, params } = context;
@@ -126,74 +198,85 @@ export async function onRequestPost(context) {
     const { request, env, params } = context;
     const userId = params.id;
 
+    console.log(`[Approve] Request for User: ${userId}`);
+
     try {
-        const { courseId, status, durationMonths } = await request.json(); // status: 'approved' or 'rejected'
+        const body = await request.json();
+        const { courseId, status, durationMonths } = body;
+
+        console.log(`[Approve] Body:`, body);
 
         if (!courseId || !status) {
             return new Response(JSON.stringify({
                 success: false,
                 message: '과정 ID와 상태를 입력해주세요.'
-            }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } });
         }
 
-        // Convert 'approved' to 'active' for consistency
-        const dbStatus = status === 'approved' ? 'active' : 'rejected';
+        // Use 'approved' instead of 'active' because of DB CHECK constraint
+        const dbStatus = status === 'approved' ? 'approved' : 'rejected';
 
-        // Resolve courseId: if it doesn't start with 'course_', treat it as course name and look up
-        let actualCourseId = courseId;
-        if (!courseId.startsWith('course_')) {
-            // Look up course ID by name
+        // Helper to run update
+        const runUpdate = async (targetCourseId) => {
+            let expiresAt = null;
+            if (dbStatus === 'approved' && durationMonths) {
+                const expireDate = new Date();
+                expireDate.setMonth(expireDate.getMonth() + durationMonths);
+                expiresAt = expireDate.toISOString();
+            }
+
+            console.log(`[Approve] Updating ${targetCourseId}, Status: ${dbStatus}, Expires: ${expiresAt}`);
+
+            let query, queryParams;
+            if (expiresAt) {
+                query = `UPDATE course_enrollments SET status = ?, expires_at = ? WHERE user_id = ? AND course_id = ?`;
+                queryParams = [dbStatus, expiresAt, userId, targetCourseId];
+            } else {
+                query = `UPDATE course_enrollments SET status = ? WHERE user_id = ? AND course_id = ?`;
+                queryParams = [dbStatus, userId, targetCourseId];
+            }
+
+            return await env.DB.prepare(query).bind(...queryParams).run();
+        };
+
+        // 1. Try treating courseId as an actual ID (or whatever was passed)
+        let result = await runUpdate(courseId);
+        console.log(`[Approve] First attempt changes: ${result.meta.changes}`);
+
+        // 2. If no rows changed, treat courseId as a Name and lookup the real ID
+        if (result.meta.changes === 0) {
+            console.log(`[Approve] No changes. Looking up course by name: ${courseId}`);
             const { results: courses } = await env.DB.prepare(
                 'SELECT id FROM courses WHERE name = ?'
             ).bind(courseId).all();
 
             if (courses.length > 0) {
-                actualCourseId = courses[0].id;
+                const actualCourseId = courses[0].id;
+                console.log(`[Approve] Found actual ID: ${actualCourseId}`);
+                result = await runUpdate(actualCourseId);
+                console.log(`[Approve] Second attempt changes: ${result.meta.changes}`);
+            } else {
+                console.log(`[Approve] Course name not found.`);
             }
         }
 
-        // Calculate expires_at if durationMonths provided
-        let expiresAt = null;
-        if (dbStatus === 'active' && durationMonths) {
-            const expireDate = new Date();
-            expireDate.setMonth(expireDate.getMonth() + durationMonths);
-            expiresAt = expireDate.toISOString();
-        }
-
-        // Update enrollment status
-        if (expiresAt) {
-            await env.DB.prepare(`
-                UPDATE course_enrollments 
-                SET status = ?, expires_at = ?
-                WHERE user_id = ? AND course_id = ?
-            `).bind(dbStatus, expiresAt, userId, actualCourseId).run();
+        if (result.meta.changes > 0) {
+            return new Response(JSON.stringify({
+                success: true,
+                message: dbStatus === 'approved' ? '과정이 승인되었습니다.' : '과정이 반려되었습니다.'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         } else {
-            await env.DB.prepare(`
-                UPDATE course_enrollments 
-                SET status = ? 
-                WHERE user_id = ? AND course_id = ?
-            `).bind(dbStatus, userId, actualCourseId).run();
+            return new Response(JSON.stringify({
+                success: false,
+                message: '해당 과정의 수강 신청 내역을 찾을 수 없거나 이미 처리되었습니다.'
+            }), { status: 404, headers: { 'Content-Type': 'application/json' } });
         }
-
-        return new Response(JSON.stringify({
-            success: true,
-            message: status === 'approved' ? '과정이 승인되었습니다.' : '과정이 반려되었습니다.'
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
 
     } catch (error) {
-        console.error('Approve course error:', error);
+        console.error('[Approve] Error:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: '과정 승인 처리 중 오류가 발생했습니다.'
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
+            message: '과정 승인 처리 중 오류가 발생했습니다: ' + error.message
+        }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 }

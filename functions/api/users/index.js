@@ -17,9 +17,10 @@ export async function onRequestGet(context) {
                 ce.user_id,
                 ce.course_id,
                 ce.status,
-                c.name as course_name
+                ce.expires_at,
+                c.name as course_name_from_db
             FROM course_enrollments ce
-            JOIN courses c ON ce.course_id = c.id
+            LEFT JOIN courses c ON ce.course_id = c.id
         `).all();
 
         // Group enrollments by user
@@ -31,11 +32,12 @@ export async function onRequestGet(context) {
 
             const enrollment = {
                 courseId: e.course_id,
-                courseName: e.course_name,
-                status: e.status
+                courseName: e.course_name_from_db || e.course_id, // Fallback
+                status: e.status,
+                expiresAt: e.expires_at
             };
 
-            if (e.status === 'active') {
+            if (e.status === 'active' || e.status === 'approved') {
                 enrollmentsByUser[e.user_id].approved.push(enrollment);
             } else if (e.status === 'pending') {
                 enrollmentsByUser[e.user_id].pending.push(enrollment);
