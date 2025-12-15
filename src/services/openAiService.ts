@@ -65,13 +65,26 @@ export const OpenAIService = {
         }
     },
 
-    // ⭐️ 유사 문제 생성 기능
+    // ⭐️ 유사 문제 생성 기능 (과정 컨텍스트 포함)
     generateSimilarQuestions: async (
-        originalQuestion: { text: string; options: string[]; correctAnswer: number; explanation?: string },
+        originalQuestion: { text: string; options: string[]; correctAnswer: number; explanation?: string; category?: string },
         apiKey: string,
-        count: number = 3
+        count: number = 3,
+        courseName?: string,
+        examTitle?: string
     ): Promise<any[]> => {
         try {
+            // 과정/시험 컨텍스트 문자열 생성
+            const contextInfo = courseName
+                ? `\n\n⚠️ 중요: 이 문제는 "${courseName}" 자격증 시험을 위한 것입니다.${examTitle ? ` (${examTitle})` : ''}
+생성하는 모든 문제는 반드시 "${courseName}" 과정의 범위와 주제에 맞아야 합니다.
+관련 없는 주제나 다른 분야의 문제를 생성하지 마세요.`
+                : '';
+
+            const categoryInfo = originalQuestion.category
+                ? `\n카테고리/영역: ${originalQuestion.category}`
+                : '';
+
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -83,7 +96,8 @@ export const OpenAIService = {
                     messages: [
                         {
                             role: "system",
-                            content: `You are an expert exam question creator for professional certification exams.
+                            content: `You are an expert exam question creator for Korean professional certification exams.
+${courseName ? `You are creating questions specifically for the "${courseName}" certification exam.` : ''}
                             
 Your task: Given an original question, create ${count} NEW similar questions that:
 1. Test the SAME concept/topic but with different scenarios or wording
@@ -91,6 +105,8 @@ Your task: Given an original question, create ${count} NEW similar questions tha
 3. Have 4 options each (one correct, three plausible distractors)
 4. Are completely original (not just rephrased)
 5. Include a Korean explanation for WHY the answer is correct
+6. ⚠️ MUST stay within the scope of "${courseName || '해당 자격증'}" certification exam
+7. Use appropriate Korean technical terminology for this field
 
 Return ONLY a valid JSON array. Do not include markdown formatting.
 
@@ -107,6 +123,8 @@ JSON Format:
                         {
                             role: "user",
                             content: `다음 원본 문제를 바탕으로 ${count}개의 유사한 문제를 생성해주세요:
+${contextInfo}
+${categoryInfo}
 
 문제: ${originalQuestion.text}
 

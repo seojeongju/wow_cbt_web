@@ -526,7 +526,7 @@ export const QuestionManagement = () => {
         setNewQuestion({ ...newQuestion, options: newOpts });
     };
 
-    // ⭐️ AI 유사 문제 생성 핸들러
+    // ⭐️ AI 유사 문제 생성 핸들러 (과정 컨텍스트 포함)
     const handleGenerateSimilar = async (question: Question) => {
         if (!apiKey) {
             alert('OpenAI API Key를 먼저 설정해주세요.');
@@ -539,16 +539,23 @@ export const QuestionManagement = () => {
         setGeneratedQuestions([]);
         setShowSimilarModal(true);
 
+        // 현재 선택된 시험 정보 가져오기
+        const currentExam = exams.find(e => e.id === selectedExamId);
+        const examTitle = currentExam?.title || '';
+
         try {
             const generated = await OpenAIService.generateSimilarQuestions(
                 {
                     text: question.text,
                     options: question.options,
                     correctAnswer: typeof question.correctAnswer === 'number' ? question.correctAnswer : 0,
-                    explanation: question.explanation
+                    explanation: question.explanation,
+                    category: question.category // 카테고리 정보 추가
                 },
                 apiKey,
-                3 // 3개의 유사문제 생성
+                3, // 3개의 유사문제 생성
+                selectedCourse || undefined, // 과정명 전달
+                examTitle // 시험명 전달
             );
             setGeneratedQuestions(generated);
         } catch (error: any) {
