@@ -1,9 +1,33 @@
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, BarChart2, MousePointerClick, ChevronRight, Printer, PenTool, Cpu, Box, UserPlus, PlayCircle, Trophy, CheckCircle2 } from 'lucide-react';
+import { BookOpen, BarChart2, MousePointerClick, ChevronRight, Printer, PenTool, Cpu, Box, UserPlus, PlayCircle, Trophy, CheckCircle2, X, Clock, Target, Award, FileText } from 'lucide-react';
 import { CourseService } from '../services/courseService';
 import { AuthService } from '../services/authService';
 import { useEffect, useState } from 'react';
+
+// 과정별 상세 정보 데이터
+const courseDetails: { [key: string]: { description: string; targets: string[]; features: string[]; howToUse: string[] } } = {
+    '3D프린터운용기능사': {
+        description: '3D 프린터를 활용하여 제품을 설계하고 출력하는 실무 능력을 평가하는 국가기술자격입니다. 3D 모델링, 슬라이싱, 출력 및 후처리 전반에 걸친 역량을 검증합니다.',
+        targets: ['3D 프린터 관련 취업 준비생', '제조업 종사자', '메이커 및 창작자', '기술 교육자'],
+        features: ['실제 시험과 동일한 문제 유형', 'AI 기반 오답 분석', '카테고리별 취약점 파악', '무제한 모의고사 응시'],
+        howToUse: ['1. 회원가입 후 해당 과정을 신청합니다.', '2. 관리자 승인 후 문제풀이가 활성화됩니다.', '3. 모의고사를 통해 실전 연습을 합니다.', '4. 오답노트로 틀린 문제를 복습합니다.', '5. 성적 분석으로 취약 영역을 파악합니다.']
+    },
+    '3D프린터개발산업기사': {
+        description: '3D 프린터 시스템의 설계, 개발, 유지보수 능력을 평가하는 중급 기술자격입니다. 하드웨어 구조, 펌웨어, 소재 특성 등 심화 지식을 다룹니다.',
+        targets: ['3D 프린터 개발자', '장비 유지보수 엔지니어', '기술 연구원', '기능사 취득 후 상위 자격 준비자'],
+        features: ['심화 이론 문제 포함', '실기 대비 핵심 개념', '최신 기출 경향 반영', '전문가 해설 제공'],
+        howToUse: ['1. 회원가입 후 해당 과정을 신청합니다.', '2. 관리자 승인 후 문제풀이가 활성화됩니다.', '3. 이론 문제로 개념을 정리합니다.', '4. 모의고사로 실전 감각을 익힙니다.', '5. 오답노트로 취약 부분을 보완합니다.']
+    }
+};
+
+// 기본 상세 정보 (정의되지 않은 과정용)
+const defaultCourseDetail = {
+    description: '체계적인 문제은행과 모의고사를 통해 자격증 취득을 지원하는 온라인 학습 과정입니다.',
+    targets: ['해당 분야 취업 준비생', '실무 역량 향상을 원하는 직장인', '자격증 취득을 목표로 하는 분'],
+    features: ['실전 모의고사 제공', 'AI 오답 분석', '성적 통계 및 취약점 분석', '언제 어디서나 학습 가능'],
+    howToUse: ['1. 회원가입 후 원하는 과정을 신청합니다.', '2. 관리자 승인 후 문제풀이가 활성화됩니다.', '3. 모의고사를 통해 실력을 점검합니다.', '4. 오답노트로 틀린 문제를 복습합니다.', '5. 성적 분석을 통해 학습 전략을 세웁니다.']
+};
 
 
 export const LandingPage = () => {
@@ -11,6 +35,10 @@ export const LandingPage = () => {
     const [courses, setCourses] = useState<any[]>([]);
     const [currentSlide, setCurrentSlide] = useState(0);
     const isLoggedIn = !!AuthService.getCurrentUser();
+
+    // 과정 상세 모달 상태
+    const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+    const [showCourseModal, setShowCourseModal] = useState(false);
 
     const slides = [
         {
@@ -305,7 +333,7 @@ export const LandingPage = () => {
 
                             return (
                                 <div key={course.id}
-                                    onClick={() => handleStartClick()}
+                                    onClick={() => { setSelectedCourse(course); setShowCourseModal(true); }}
                                     className="course-card"
                                     style={{
                                         background: 'white',
@@ -520,6 +548,156 @@ export const LandingPage = () => {
                     </div>
                 </div>
             </footer>
+
+            {/* 과정 상세 모달 */}
+            {showCourseModal && selectedCourse && (() => {
+                const detail = courseDetails[selectedCourse.name] || defaultCourseDetail;
+
+                // 아이콘 및 색상 결정
+                let Icon = BookOpen;
+                let color1 = '#6366f1';
+                if (selectedCourse.name.includes('운용기능사')) {
+                    Icon = Printer; color1 = '#0ea5e9';
+                } else if (selectedCourse.name.includes('개발') || selectedCourse.name.includes('산업기사')) {
+                    Icon = Cpu; color1 = '#10b981';
+                } else if (selectedCourse.name.includes('모델링')) {
+                    Icon = Box; color1 = '#8b5cf6';
+                }
+
+                return (
+                    <div
+                        style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            zIndex: 1000, padding: '1rem'
+                        }}
+                        onClick={() => setShowCourseModal(false)}
+                    >
+                        <div
+                            style={{
+                                background: 'white', borderRadius: '1.5rem', padding: '2.5rem',
+                                maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                                position: 'relative'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* 닫기 버튼 */}
+                            <button
+                                onClick={() => setShowCourseModal(false)}
+                                style={{
+                                    position: 'absolute', top: '1.5rem', right: '1.5rem',
+                                    background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                                    width: '40px', height: '40px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}
+                            >
+                                <X size={20} color="#64748b" />
+                            </button>
+
+                            {/* 헤더 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                                <div style={{
+                                    width: '60px', height: '60px', borderRadius: '1rem',
+                                    background: `linear-gradient(135deg, ${color1}, ${color1}80)`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <Icon size={30} color="white" />
+                                </div>
+                                <div>
+                                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                                        {selectedCourse.name}
+                                    </h2>
+                                    <span style={{ fontSize: '0.9rem', color: '#64748b' }}>온라인 CBT 문제은행</span>
+                                </div>
+                            </div>
+
+                            {/* 설명 */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                    <FileText size={18} color={color1} /> 과정 소개
+                                </h3>
+                                <p style={{ color: '#475569', lineHeight: 1.7, background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem' }}>
+                                    {detail.description}
+                                </p>
+                            </div>
+
+                            {/* 대상 */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                    <Target size={18} color={color1} /> 학습 대상
+                                </h3>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    {detail.targets.map((t, i) => (
+                                        <span key={i} style={{
+                                            padding: '0.5rem 1rem', background: '#f1f5f9', borderRadius: '2rem',
+                                            fontSize: '0.9rem', color: '#475569'
+                                        }}>{t}</span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 특징 */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                    <Award size={18} color={color1} /> 주요 특징
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                    {detail.features.map((f, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569' }}>
+                                            <CheckCircle2 size={16} color="#10b981" />
+                                            <span>{f}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 이용 방법 */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                    <Clock size={18} color={color1} /> 이용 방법
+                                </h3>
+                                <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '0.75rem' }}>
+                                    {detail.howToUse.map((step, i) => (
+                                        <div key={i} style={{
+                                            display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                                            marginBottom: i < detail.howToUse.length - 1 ? '0.75rem' : 0,
+                                            color: '#475569', fontSize: '0.95rem'
+                                        }}>
+                                            <span style={{
+                                                minWidth: '24px', height: '24px', borderRadius: '50%',
+                                                background: color1, color: 'white', fontSize: '0.8rem',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600
+                                            }}>{i + 1}</span>
+                                            <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 신청 버튼 */}
+                            <button
+                                onClick={() => {
+                                    setShowCourseModal(false);
+                                    handleStartClick();
+                                }}
+                                style={{
+                                    width: '100%', padding: '1rem', borderRadius: '0.75rem',
+                                    background: `linear-gradient(135deg, ${color1}, ${color1}cc)`,
+                                    color: 'white', fontWeight: 700, fontSize: '1.1rem',
+                                    border: 'none', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                            >
+                                <PlayCircle size={20} /> 과정 신청하기
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
