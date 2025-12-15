@@ -109,11 +109,11 @@ export const RegisterPage = () => {
                         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
                             {/* Logo Area */}
                             <div style={{ marginBottom: '2.5rem' }}>
-                                <img src="/images/wow_logo.png" alt="WOW3D CBT" style={{ height: '60px', filter: 'brightness(0) invert(1)' }} />
+                                <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: '60px', filter: 'brightness(0) invert(1)' }} />
                             </div>
 
                             <h1 style={{ fontSize: '1.8rem', lineHeight: 1.3, marginBottom: '2rem', color: 'white', fontWeight: 700 }}>
-                                WOW3D CBT(문제은행)<br />서비스
+                                WOW3D-CBT(문제은행)<br />서비스
                             </h1>
                             <p style={{ fontSize: '1rem', color: 'var(--slate-300)', marginBottom: '2rem' }}>
                                 지금 가입하고 실전 모의고사와 오답 노트를<br />무료로 이용해보세요.

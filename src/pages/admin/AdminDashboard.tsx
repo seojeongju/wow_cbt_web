@@ -103,7 +103,7 @@ export const AdminDashboard = () => {
                         환영합니다, 관리자님 👋
                     </h2>
                     <p style={{ fontSize: '1rem', opacity: 0.9 }}>
-                        오늘도 WOW3D CBT 교육센터를 성장시켜주셔서 감사합니다.
+                        오늘도 WOW3D-CBT 교육센터를 성장시켜주셔서 감사합니다.
                     </p>
                 </div>
 

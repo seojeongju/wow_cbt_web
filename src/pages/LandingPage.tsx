@@ -82,7 +82,7 @@ export const LandingPage = () => {
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
                         onClick={() => navigate('/')}
                     >
-                        <img src="/images/wow_logo.png" alt="WOW3D CBT" style={{ height: '32px' }} />
+                        <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: '32px' }} />
                         <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', letterSpacing: '-0.5px' }}>WOW3D-CBT</span>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
@@ -270,7 +270,7 @@ export const LandingPage = () => {
                         }}>Curriculum</span>
                         <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', letterSpacing: '-0.02em' }}> 교육 과정(문제은행)</h2>
                         <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto' }}>
-                            국가기술자격부터 실무 전문가 과정까지,<br />WOW3D CBT만의 체계적인 커리큘럼을 만나보세요.
+                            국가기술자격부터 실무 전문가 과정까지,<br />WOW3D-CBT만의 체계적인 커리큘럼을 만나보세요.
                         </p>
                     </div>
 
@@ -511,7 +511,7 @@ export const LandingPage = () => {
             <footer style={{ background: '#1e293b', color: '#94a3b8', padding: '4rem 1rem', fontSize: '0.9rem' }}>
                 <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
                     <div style={{ background: 'white', padding: '10px 20px', borderRadius: '8px' }}>
-                        <img src="/images/wow_logo.png" alt="WOW3D CBT" style={{ height: '36px' }} />
+                        <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: '36px' }} />
                     </div>
                     <div style={{ textAlign: 'center', lineHeight: 1.6 }}>
                         <p>&copy; 2025 WOW3D Education Center. All rights reserved.</p>

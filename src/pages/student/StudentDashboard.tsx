@@ -408,7 +408,7 @@ export const StudentDashboard = () => {
                                 합격까지 완벽한 페이스메이커!
                             </h1>
                             <p style={{ fontSize: '1.1rem', opacity: 0.9 }}>
-                                WOW CBT와 함께라면 합격은 당신의 것입니다.
+                                WOW3D-CBT와 함께라면 합격은 당신의 것입니다.
                             </p>
                         </div>
                         {/* Decorative Elements */}

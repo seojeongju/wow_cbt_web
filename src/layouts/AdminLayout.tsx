@@ -99,7 +99,7 @@ export const AdminLayout = () => {
                         }}>
                             <img
                                 src="/images/wow_logo.png"
-                                alt="WOW3D CBT"
+                                alt="WOW3D-CBT"
                                 style={{
                                     height: '40px',
                                     filter: 'brightness(0) invert(1)',
@@ -283,7 +283,7 @@ export const AdminLayout = () => {
                             {menuItems.find(item => item.path === location.pathname)?.label || '관리자'}
                         </h1>
                         <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
-                            {menuItems.find(item => item.path === location.pathname)?.desc || 'WOW3D CBT 관리 시스템'}
+                            {menuItems.find(item => item.path === location.pathname)?.desc || 'WOW3D-CBT 관리 시스템'}
                         </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

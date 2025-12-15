@@ -114,30 +114,52 @@ export const ExamPlayer = () => {
     return (
         <div style={{ minHeight: '100vh', background: 'var(--slate-50)', paddingBottom: '2rem' }}>
             {/* Header - Custom for Exam (No Layout) */}
-            <header style={{ background: 'white', borderBottom: '1px solid var(--slate-200)', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 10 }}>
+            <header style={{ background: 'white', borderBottom: '1px solid var(--slate-200)', padding: '1rem 0', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--slate-800)' }}>
+                        {exam.title}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <Timer initialTime={exam.timeLimit} onTimeUp={() => alert('시간 종료!')} />
                         <button
                             onClick={handleExit}
                             style={{
-                                display: 'flex', alignItems: 'center', gap: '0.25rem',
-                                border: 'none', background: 'transparent',
-                                color: 'var(--slate-500)', fontSize: '0.9rem', cursor: 'pointer',
-                                padding: '0.5rem', borderRadius: '0.5rem'
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                padding: '0.625rem 1.25rem',
+                                border: '1.5px solid var(--slate-300)',
+                                background: 'white',
+                                color: 'var(--slate-600)',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                borderRadius: '0.5rem',
+                                transition: 'all 0.2s'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--slate-100)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'var(--slate-50)';
+                                e.currentTarget.style.borderColor = 'var(--slate-400)';
+                                e.currentTarget.style.color = 'var(--slate-700)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'white';
+                                e.currentTarget.style.borderColor = 'var(--slate-300)';
+                                e.currentTarget.style.color = 'var(--slate-600)';
+                            }}
                         >
-                            <LogOut size={18} /> 나가기
+                            <LogOut size={16} />
+                            나가기
                         </button>
-                        <div style={{ width: '1px', height: '20px', background: 'var(--slate-200)' }} />
-                        <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>
-                            {exam.title}
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <Timer initialTime={exam.timeLimit} onTimeUp={() => alert('시간 종료!')} />
-                        <button className="btn btn-accent" onClick={submitExam} style={{ fontSize: '0.875rem' }}>제출하기</button>
+                        <button
+                            className="btn btn-accent"
+                            onClick={submitExam}
+                            style={{
+                                fontSize: '0.875rem',
+                                padding: '0.625rem 1.5rem',
+                                fontWeight: 600
+                            }}
+                        >
+                            제출하기
+                        </button>
                     </div>
                 </div>
             </header>

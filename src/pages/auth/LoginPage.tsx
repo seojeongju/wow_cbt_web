@@ -69,7 +69,7 @@ export const LoginPage = () => {
                             <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '60px', marginBottom: '2rem', filter: 'brightness(0) invert(1)' }} />
 
                             <h1 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.3, marginBottom: '3rem', color: 'white' }}>
-                                WOW3D CBT(문제은행)<br />
+                                WOW3D-CBT(문제은행)<br />
                                 서비스
                             </h1>
 
