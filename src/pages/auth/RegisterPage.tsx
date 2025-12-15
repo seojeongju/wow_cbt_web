@@ -72,7 +72,10 @@ export const RegisterPage = () => {
                 }))
             });
             if (result.success) {
-                alert('회원가입이 완료되었습니다! 로그인해주세요.');
+                const message = role === 'student'
+                    ? '회원가입이 완료되었습니다!\n\n로그인 후 대시보드에 바로 접속하실 수 있습니다.\n선택하신 과정은 관리자 승인 후 문제를 풀 수 있습니다.'
+                    : '회원가입이 완료되었습니다! 로그인해주세요.';
+                alert(message);
                 navigate('/login');
             } else {
                 setError(result.message || '회원가입 실패');

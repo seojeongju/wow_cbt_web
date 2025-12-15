@@ -31,24 +31,25 @@ export async function onRequestPost(context) {
             });
         }
 
-        // Get system settings
+        // Get system settings for course approval
         const { results: settings } = await env.DB.prepare(
-            'SELECT * FROM system_settings WHERE key IN (?, ?)'
-        ).bind('requireUserApproval', 'requireCourseApproval').all();
+            'SELECT * FROM system_settings WHERE key = ?'
+        ).bind('requireCourseApproval').all();
 
         const settingsMap = {};
         settings.forEach(s => {
             settingsMap[s.key] = s.value === 'true';
         });
 
-        const requireUserApproval = settingsMap.requireUserApproval !== false;
+        // Course approval still required (default: true)
         const requireCourseApproval = settingsMap.requireCourseApproval !== false;
 
         // Generate user ID
         const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Create user
-        const userApproved = role === 'admin' || !requireUserApproval ? 1 : 0;
+        // Create user - AUTO APPROVE all users for dashboard access
+        // Only admin or student roles allowed
+        const userApproved = 1; // Always approved - users can login and access dashboard
 
         await env.DB.prepare(`
             INSERT INTO users (id, email, password, name, phone, role, approved)
@@ -63,6 +64,7 @@ export async function onRequestPost(context) {
                 `SELECT id, name FROM courses WHERE name IN (${placeholders})`
             ).bind(...selectedCourses).all();
 
+            // Course enrollments require admin approval to access exams
             const enrollmentStatus = requireCourseApproval ? 'pending' : 'approved';
 
             for (const course of courses) {
