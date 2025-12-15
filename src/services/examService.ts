@@ -7,15 +7,12 @@ export const ExamService = {
     // --------------------------------------------------------------------------
     createExam: async (data: { title: string; courseName: string; timeLimit: number }): Promise<{ success: boolean; examId?: string; message?: string }> => {
         try {
-            // Note: courseName is mapped to courseId in frontend now, or backend expects ID.
-            // Assumption: data.courseName holds the ID or we need to find it.
-            // Simplified: Passing courseName as courseId
             const response = await fetch('/api/exams', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: data.title,
-                    courseId: data.courseName, // Using name as ID for now based on previous context
+                    courseId: data.courseName,
                     timeLimit: data.timeLimit,
                     description: '',
                     passScore: 60
@@ -40,12 +37,81 @@ export const ExamService = {
                     description: e.description,
                     timeLimit: e.time_limit,
                     passScore: e.pass_score,
-                    questions: [], // Shallow list doesn't need full questions usually
+                    questions: [],
                     questionsCount: e.question_count
                 }));
             }
             return [];
         } catch { return []; }
+    },
+
+    updateExam: async (examId: string, data: Partial<Exam>): Promise<{ success: boolean; message?: string }> => {
+        try {
+            const response = await fetch(`/api/exams/${examId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            return await response.json();
+        } catch (error) {
+            return { success: false, message: 'Server error' };
+        }
+    },
+
+    deleteExam: async (examId: string): Promise<{ success: boolean; message?: string }> => {
+        try {
+            const response = await fetch(`/api/exams/${examId}`, {
+                method: 'DELETE'
+            });
+            return await response.json();
+        } catch (error) {
+            return { success: false, message: 'Server error' };
+        }
+    },
+
+    // --------------------------------------------------------------------------
+    // Question Management
+    // --------------------------------------------------------------------------
+    getAllQuestions: async (examId: string): Promise<Question[]> => {
+        try {
+            const response = await fetch(`/api/exams/${examId}/questions`);
+            const data = await response.json();
+            return (data.questions || []).map((q: any) => ({
+                id: q.id,
+                category: q.category,
+                text: q.text,
+                imageUrl: q.image_url,
+                options: q.options || [],
+                correctAnswer: q.correct_answer, // Assuming API returns consistent type (number or string)
+                explanation: q.explanation
+            }));
+        } catch { return []; }
+    },
+
+    addQuestionToExam: async (examId: string, question: Question): Promise<void> => {
+        try {
+            await fetch(`/api/exams/${examId}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(question)
+            });
+        } catch { }
+    },
+
+    updateQuestionInExam: async (_examId: string, question: Question): Promise<void> => {
+        try {
+            await fetch(`/api/questions/${question.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(question)
+            });
+        } catch { }
+    },
+
+    removeQuestionFromExam: async (_examId: string, questionId: string): Promise<void> => {
+        try {
+            await fetch(`/api/questions/${questionId}`, { method: 'DELETE' });
+        } catch { }
     },
 
     // --------------------------------------------------------------------------
@@ -74,12 +140,8 @@ export const ExamService = {
     },
 
     getWrongProblems: async (): Promise<WrongProblem[]> => {
-        // Mock implementation for now, or need a new API endpoint for aggregated wrong answers
-        // Filtering from history on client side for MVP to save API complexity
         const history = await ExamService.getExamHistory();
         const wrongProblems: WrongProblem[] = [];
-
-        // This is heavy, in real app should be a SQL query
         const ignoreList = JSON.parse(localStorage.getItem('wow_cbt_ignored_wrong_problems') || '[]');
 
         for (const result of history) {
@@ -143,6 +205,30 @@ export const ExamService = {
             console.error('getExamList error:', error);
             return [];
         }
+    },
+
+    getExamHistory: async (): Promise<ExamResult[]> => {
+        const currentUser = AuthService.getCurrentUser();
+        if (!currentUser) return [];
+
+        try {
+            const response = await fetch(`/api/exam-results?userId=${currentUser.id}`);
+            const data = await response.json();
+            return (data.results || []).map((r: any) => ({
+                id: r.id,
+                userId: r.user_id,
+                examId: r.exam_id,
+                examTitle: r.exam_title,
+                courseName: r.course_name,
+                score: r.score,
+                totalQuestions: r.total_questions,
+                wrongCount: r.total_questions - r.score,
+                date: r.created_at,
+                passed: r.status === 'pass',
+                answers: r.answers,
+                status: 'completed'
+            }));
+        } catch { return []; }
     },
 
     // --------------------------------------------------------------------------
@@ -222,7 +308,7 @@ export const ExamService = {
                         text: q.text,
                         imageUrl: q.image_url,
                         options: q.options || [],
-                        correctAnswer: Number(q.correct_answer),
+                        correctAnswer: (q.correct_answer === '0' || q.correct_answer === '1' || q.correct_answer === '2' || q.correct_answer === '3') ? Number(q.correct_answer) : q.correct_answer,
                         explanation: q.explanation
                     })),
                     questionsCount: e.questions?.length || 0

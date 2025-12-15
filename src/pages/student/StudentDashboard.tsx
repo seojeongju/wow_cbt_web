@@ -102,18 +102,6 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge }: any)
     </motion.button>
 );
 
-const StatCard = ({ label, value, icon, color, isText }: any) => (
-    <div style={{ background: 'white', padding: '1.5rem', borderRadius: '1.25rem', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ width: '48px', height: '48px', borderRadius: '1rem', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {icon}
-        </div>
-        <div>
-            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginBottom: '0.2rem' }}>{label}</div>
-            <div style={{ fontSize: isText ? '1.1rem' : '1.5rem', fontWeight: 700, color: '#1e293b' }}>{value}</div>
-        </div>
-    </div>
-);
-
 export const StudentDashboard = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);

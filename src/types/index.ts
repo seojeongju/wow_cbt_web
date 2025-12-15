@@ -4,7 +4,7 @@ export interface Question {
     text: string;
     imageUrl?: string; // Optional image for diagrams/drawings
     options: string[];
-    correctAnswer: number; // 0-3 index
+    correctAnswer: number | string; // 0-3 index or string answer
     explanation: string;
 }
 
@@ -21,7 +21,7 @@ export interface Exam {
 
 export interface UserAnswer {
     questionId: string;
-    selectedOption: number | null; // null if not answered
+    selectedOption: number | string | null; // null if not answered
     isCorrect: boolean;
 }
 
@@ -33,6 +33,7 @@ export interface Category {
 export interface Course {
     id: string;
     name: string;
+    category?: string;
 }
 
 export interface CourseEnrollment {
@@ -69,7 +70,7 @@ export interface ExamResult {
     wrongCount: number;
     date: string; // ISO string
     passed: boolean;
-    answers?: { [key: string]: number }; // Optional for history detail
+    answers?: { [key: string]: number | string }; // Optional for history detail
     status?: 'completed';
 }
 
