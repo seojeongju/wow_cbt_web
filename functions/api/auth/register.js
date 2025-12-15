@@ -47,9 +47,11 @@ export async function onRequestPost(context) {
         // Generate user ID
         const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Create user - AUTO APPROVE all users for dashboard access
-        // Only admin or student roles allowed
-        const userApproved = 1; // Always approved - users can login and access dashboard
+        // Create user
+        // SECURITY UPDATE:
+        // Admin: approved = 0 (Requires manual approval)
+        // Student: approved = 1 (Immediate dashboard access)
+        const userApproved = (role === 'admin') ? 0 : 1;
 
         await env.DB.prepare(`
             INSERT INTO users (id, email, password, name, phone, role, approved)

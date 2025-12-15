@@ -74,7 +74,7 @@ export const RegisterPage = () => {
             if (result.success) {
                 const message = role === 'student'
                     ? '회원가입이 완료되었습니다!\n\n로그인 후 대시보드에 바로 접속하실 수 있습니다.\n선택하신 과정은 관리자 승인 후 문제를 풀 수 있습니다.'
-                    : '회원가입이 완료되었습니다! 로그인해주세요.';
+                    : '회원가입 요청이 완료되었습니다.\n\n관리자 승인 후 로그인하실 수 있습니다.';
                 alert(message);
                 navigate('/login');
             } else {
@@ -166,6 +166,13 @@ export const RegisterPage = () => {
                                 관리자
                             </button>
                         </div>
+                        {role === 'admin' && (
+                            <div style={{ padding: '0.75rem', background: '#fff7ed', borderRadius: '0.5rem', border: '1px solid #fed7aa', marginTop: '0.5rem' }}>
+                                <div style={{ fontSize: '0.85rem', color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    ⚠️ 관리자 계정은 가입 후 승인 대기 상태가 됩니다.
+                                </div>
+                            </div>
+                        )}
 
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="input-group">
