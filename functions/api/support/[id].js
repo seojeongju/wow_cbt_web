@@ -4,7 +4,9 @@ export async function onRequestPut(context) {
     const ticketId = params.id;
 
     try {
-        const { adminReply, status } = await request.json();
+        const body = await request.json();
+        const adminReply = body.adminReply;
+        const newStatus = body.status;
 
         // Check if ticket exists
         const { results: existing } = await env.DB.prepare(
@@ -21,24 +23,35 @@ export async function onRequestPut(context) {
             });
         }
 
-        const updates = [];
-        const bindParams = []; // Changed from 'params' to avoid conflict with route params
+        // Build update query dynamically
+        // Note: status should match DB values (e.g., 'pending', 'resolved')
+        const statusValue = newStatus ? newStatus.toLowerCase() : null;
 
-        if (adminReply !== undefined) {
-            updates.push('admin_reply = ?');
-            bindParams.push(adminReply);
+        if (adminReply && statusValue) {
+            // Both reply and status
+            await env.DB.prepare(
+                'UPDATE support_tickets SET admin_reply = ?, status = ?, updated_at = datetime("now") WHERE id = ?'
+            ).bind(adminReply, statusValue, ticketId).run();
+        } else if (adminReply) {
+            // Only reply
+            await env.DB.prepare(
+                'UPDATE support_tickets SET admin_reply = ?, updated_at = datetime("now") WHERE id = ?'
+            ).bind(adminReply, ticketId).run();
+        } else if (statusValue) {
+            // Only status
+            await env.DB.prepare(
+                'UPDATE support_tickets SET status = ?, updated_at = datetime("now") WHERE id = ?'
+            ).bind(statusValue, ticketId).run();
+        } else {
+            // Nothing to update
+            return new Response(JSON.stringify({
+                success: false,
+                message: '업데이트할 내용이 없습니다.'
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
-
-        if (status !== undefined) {
-            updates.push('status = ?');
-            bindParams.push(status);
-        }
-
-        updates.push('updated_at = datetime("now")');
-        bindParams.push(ticketId);
-
-        const query = `UPDATE support_tickets SET ${updates.join(', ')} WHERE id = ?`;
-        await env.DB.prepare(query).bind(...bindParams).run();
 
         return new Response(JSON.stringify({
             success: true,
@@ -52,7 +65,7 @@ export async function onRequestPut(context) {
         console.error('Update support ticket error:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: '문의 수정 중 오류가 발생했습니다.'
+            message: '문의 수정 중 오류가 발생했습니다: ' + error.message
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

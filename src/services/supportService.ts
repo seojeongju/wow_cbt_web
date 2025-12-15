@@ -33,8 +33,8 @@ export const SupportService = {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    adminReply: answer,  // Backend expects 'adminReply', not 'answer'
-                    status: 'RESOLVED'    // Automatically mark as resolved when replying
+                    adminReply: answer,
+                    status: 'answered'   // DB schema: CHECK(status IN ('pending', 'answered'))
                 })
             });
             return response.ok;
@@ -58,7 +58,7 @@ const mapToInquiry = (data: any): Inquiry => ({
     category: data.category,
     title: data.title,
     content: data.content,
-    status: (data.status || 'PENDING').toUpperCase() as any,
+    status: data.status === 'answered' ? 'RESOLVED' : (data.status || 'PENDING').toUpperCase() as any,
     createdAt: data.created_at,
     answer: data.admin_reply,
     answeredAt: data.updated_at
