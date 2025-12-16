@@ -84,14 +84,17 @@ export const SystemSettingsPage = () => {
     };
 
     const handleReset = () => {
-        const promptText = prompt('모든 데이터를 초기화하려면 "초기화"라고 입력하세요.\n(주의: 이 작업은 되돌릴 수 없습니다!)');
-        if (promptText === '초기화') {
-            // SettingsService.resetAllData(); // Not fully implemented yet
-            localStorage.clear(); // Nuclear option for now, or use specific clearing
-            // Re-initialize admin? 
-            // Better to clear only specific keys if possible, but clear() works for full reset.
-            alert('시스템이 초기화되었습니다. 로그인 페이지로 이동합니다.');
-            window.location.href = '/';
+        const password = prompt('⚠️ 시스템 전체 초기화\n\n모든 데이터가 영구적으로 삭제됩니다.\n계속하려면 관리자 비밀번호를 입력하세요:');
+
+        if (password === 'wow3d3144') {
+            if (confirm('정말로 모든 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다!')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('✅ 시스템이 초기화되었습니다.\n로그인 페이지로 이동합니다.');
+                window.location.href = '/';
+            }
+        } else if (password !== null) {
+            alert('❌ 비밀번호가 올바르지 않습니다.\n초기화가 취소되었습니다.');
         }
     };
 

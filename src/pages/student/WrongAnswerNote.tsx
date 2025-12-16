@@ -122,18 +122,20 @@ export const WrongAnswerNote = () => {
 
                                     {/* Question */}
                                     <div style={{ marginBottom: '2rem' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                            <span style={{
-                                                padding: '0.25rem 0.5rem',
-                                                background: 'var(--slate-100)',
-                                                borderRadius: '4px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: 600,
-                                                color: 'var(--slate-600)'
-                                            }}>
-                                                {item.question.category || '기타'}
-                                            </span>
-                                        </div>
+                                        {item.question.category !== 'AI 추출' && (
+                                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                <span style={{
+                                                    padding: '0.25rem 0.5rem',
+                                                    background: 'var(--slate-100)',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 600,
+                                                    color: 'var(--slate-600)'
+                                                }}>
+                                                    {item.question.category || '기타'}
+                                                </span>
+                                            </div>
+                                        )}
                                         <h3 style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.5, marginBottom: '1rem' }}>
                                             {item.question.text}
                                         </h3>

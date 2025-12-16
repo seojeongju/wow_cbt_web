@@ -6,9 +6,12 @@ export async function onRequestGet(context) {
     try {
         // Get exam details
         const { results: exams } = await env.DB.prepare(`
-            SELECT e.*, COALESCE(c.name, e.course_id) as course_name
+            SELECT e.*, 
+                   COALESCE(c.name, e.course_id) as course_name,
+                   s.name as subject_name
             FROM exams e
             LEFT JOIN courses c ON e.course_id = c.id
+            LEFT JOIN subjects s ON e.subject_id = s.id
             WHERE e.id = ?
         `).bind(examId).all();
 
@@ -66,7 +69,7 @@ export async function onRequestPut(context) {
     const examId = params.id;
 
     try {
-        const { title, description, timeLimit, passScore, courseId } = await request.json();
+        const { title, description, timeLimit, passScore, courseId, subjectId, topic, round } = await request.json();
 
         // Check if exam exists
         const { results: existing } = await env.DB.prepare(
@@ -106,6 +109,18 @@ export async function onRequestPut(context) {
         if (courseId !== undefined) {
             updates.push('course_id = ?');
             params.push(courseId);
+        }
+        if (subjectId !== undefined) {
+            updates.push('subject_id = ?');
+            params.push(subjectId);
+        }
+        if (topic !== undefined) {
+            updates.push('topic = ?');
+            params.push(topic);
+        }
+        if (round !== undefined) {
+            updates.push('round = ?');
+            params.push(round);
         }
 
         if (updates.length === 0) {

@@ -5,7 +5,10 @@ import { Question } from '../../types';
 import { ExamService } from '../../services/examService';
 import { CategoryService } from '../../services/categoryService';
 import { CourseService } from '../../services/courseService';
+import { SubjectService } from '../../services/subjectService'; // Added
 import { OpenAIService } from '../../services/openAiService'; // ⭐️ 추가
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import * as XLSX from 'xlsx';
 
 export const QuestionManagement = () => {
@@ -33,7 +36,17 @@ export const QuestionManagement = () => {
     const [fullCourses, setFullCourses] = useState<any[]>([]); // Store full course objects
 
     // ⭐️ Load exams from ExamService
-    const [exams, setExams] = useState<{ id: string; title: string; course: string }[]>([]);
+    // Added subjectId optional type
+    const [exams, setExams] = useState<{
+        id: string;
+        title: string;
+        course: string;
+        courseId?: string;
+        subjectId?: string;
+        subjectName?: string;
+        topic?: string;
+        round?: string;
+    }[]>([]);
 
     // ⭐️ Course Description Editing State
     const [showCourseEditModal, setShowCourseEditModal] = useState(false);
@@ -42,6 +55,32 @@ export const QuestionManagement = () => {
         targets: '',
         features: '',
         howToUse: ''
+    });
+
+    // ⭐️ Subject Management State (3단계 분류)
+    const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+    const [showSubjectModal, setShowSubjectModal] = useState(false); // For managing subjects
+    const [editingSubject, setEditingSubject] = useState<{ id: string; name: string } | null>(null);
+    const [subjectInputName, setSubjectInputName] = useState('');
+
+    // ⭐️ Exam Move Modal State
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [moveTargetExamId, setMoveTargetExamId] = useState<string | null>(null);
+    const [moveTargetCourseId, setMoveTargetCourseId] = useState<string>('');
+    const [moveTargetSubjectId, setMoveTargetSubjectId] = useState<string>('');
+    const [moveTargetSubjects, setMoveTargetSubjects] = useState<{ id: string; name: string }[]>([]);
+
+    // ⭐️ Exam Edit Modal State
+    const [isExamEditModalOpen, setIsExamEditModalOpen] = useState(false);
+    const [editExamData, setEditExamData] = useState({
+        id: '',
+        title: '',
+        timeLimit: 60,
+        subjectName: '',
+        topic: '',
+        round: '',
+        description: ''
     });
 
     // ⭐️ Load initial data
@@ -65,7 +104,12 @@ export const QuestionManagement = () => {
         const examsWithCourse = examList.map(exam => ({
             id: exam.id,
             title: exam.title,
-            course: exam.courseName || '미분류'
+            course: exam.courseName || '미분류',
+            courseId: exam.courseId,
+            subjectId: exam.subjectId, // Ensure this is mapped (Requires ExamService update to return it)
+            subjectName: exam.subjectName,
+            topic: exam.topic,
+            round: exam.round
         }));
         setExams(examsWithCourse);
 
@@ -75,6 +119,95 @@ export const QuestionManagement = () => {
 
         setCourses(currentCourses);
         console.log('📚 Final course list:', currentCourses);
+    };
+
+    // ⭐️ Subject Management Handlers
+    const handleAddSubject = async () => {
+        if (!selectedCourse || !subjectInputName.trim()) return;
+        const courseObj = fullCourses.find(c => c.name === selectedCourse);
+        if (!courseObj) return;
+
+        const result = await SubjectService.addSubject(courseObj.id, subjectInputName.trim());
+        if (result.success) {
+            const subs = await SubjectService.getSubjects(courseObj.id);
+            setSubjects(subs);
+            setSubjectInputName('');
+            alert('분류(과목)가 추가되었습니다.');
+        } else {
+            alert('추가 실패');
+        }
+    };
+
+    const handleDeleteSubject = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm('정말 이 분류를 삭제하시겠습니까? 포함된 시험지의 분류 정보가 초기화됩니다.')) return;
+
+        const success = await SubjectService.deleteSubject(id);
+        if (success) {
+            const courseObj = fullCourses.find(c => c.name === selectedCourse);
+            if (courseObj) {
+                const subs = await SubjectService.getSubjects(courseObj.id);
+                setSubjects(subs);
+            }
+            if (selectedSubjectId === id) setSelectedSubjectId(null);
+        }
+    };
+
+    const handleUpdateSubject = async () => {
+        if (!editingSubject || !subjectInputName.trim()) return;
+        const success = await SubjectService.updateSubject(editingSubject.id, subjectInputName.trim());
+        if (success) {
+            const courseObj = fullCourses.find(c => c.name === selectedCourse);
+            if (courseObj) {
+                const subs = await SubjectService.getSubjects(courseObj.id);
+                setSubjects(subs);
+            }
+            setEditingSubject(null);
+            setSubjectInputName('');
+            setShowSubjectModal(false);
+        }
+    };
+
+    // ⭐️ Exam Move Handlers
+    const openMoveModal = (examId: string) => {
+        setMoveTargetExamId(examId);
+        // Default to current course
+        const currentExam = exams.find(e => e.id === examId);
+        if (currentExam) {
+            // Find current course ID
+            const cObj = fullCourses.find(c => c.name === currentExam.course);
+            if (cObj) {
+                setMoveTargetCourseId(cObj.id);
+                // Load subjects for this course
+                SubjectService.getSubjects(cObj.id).then(subs => setMoveTargetSubjects(subs));
+            }
+            setMoveTargetSubjectId(currentExam.subjectId || '');
+        }
+        setShowMoveModal(true);
+    };
+
+    // When modal course changes
+    useEffect(() => {
+        if (showMoveModal && moveTargetCourseId) {
+            SubjectService.getSubjects(moveTargetCourseId).then(subs => setMoveTargetSubjects(subs));
+        }
+    }, [moveTargetCourseId, showMoveModal]);
+
+    const handleMoveExam = async () => {
+        if (!moveTargetExamId || !moveTargetCourseId) return;
+
+        const result = await ExamService.updateExam(moveTargetExamId, {
+            courseId: moveTargetCourseId,
+            subjectId: moveTargetSubjectId || undefined // Allow clearing subject if empty string? Actually DB field is nullable
+        });
+
+        if (result.success) {
+            alert('이동되었습니다.');
+            setShowMoveModal(false);
+            loadInitialData(); // Reload everything
+        } else {
+            alert('이동 실패: ' + result.message);
+        }
     };
 
     // ⭐️ Course Details Editing Handlers
@@ -119,19 +252,37 @@ export const QuestionManagement = () => {
         }
     };
 
-    // Derived state for exam dropdown
-    const availableExams = exams.filter(e => e.course === selectedCourse);
-
-    // Initial Load: Reset exam selection when course changes
+    // Load Subjects when Course changes
     useEffect(() => {
-        if (selectedCourse && availableExams.length > 0) {
-            setSelectedExamId(availableExams[0].id);
+        if (selectedCourse) {
+            const courseObj = fullCourses.find(c => c.name === selectedCourse);
+            if (courseObj) {
+                SubjectService.getSubjects(courseObj.id).then(subs => {
+                    setSubjects(subs);
+                    // Select first subject if available, or 'all' if we want defaults
+                    // Let's keep null as 'All' or 'Uncategorized' view
+                    setSelectedSubjectId(null);
+                });
+            }
         } else {
-            setSelectedExamId('');
-            // Don't clear questions here immediately, let the exam selection effect handle it
-            if (!availableExams.length) setQuestions([]);
+            setSubjects([]);
         }
-    }, [selectedCourse, exams]); // Added exams dependency
+    }, [selectedCourse, fullCourses]); // dependency on fullCourses
+
+    // Derived state for exam dropdown/list
+    // Filter by Course AND Subject
+    const availableExams = exams.filter(e => {
+        const matchCourse = e.course === selectedCourse;
+        if (!matchCourse) return false;
+
+        return true;
+    });
+
+    // Initial Load: Reset exam selection when filtering changes
+    useEffect(() => {
+        setSelectedExamId('');
+        // Don't auto-select first exam automatically to avoid confusion when switching categories
+    }, [selectedCourse, selectedSubjectId]);
 
     // Load questions when exam changes
     useEffect(() => {
@@ -169,47 +320,72 @@ export const QuestionManagement = () => {
     const [isExamModalOpen, setIsExamModalOpen] = useState(false);
     const [newExamData, setNewExamData] = useState({
         title: '',
-        timeLimit: 60
+        timeLimit: 60,
+        subjectName: '',
+        topic: '',
+        courseName: '',
+        round: ''
     });
 
-    // ⭐️ Load categories when selectedCourse changes
+
+
+    // We need to find the ID corresponding to the name.
+
+    // Ideally we should store generic Course objects in `courses` state, not just strings.
+    // but refactoring that is big.
+    // Let's modify CategoryService to accept name IF backend supports it? 
+    // No, backend expects ID.
+
+    // Workaround: We fetch all courses in loadInitialData, we should store them as objects.
+    // But for now, let's query the API or find from a list.
+
+    // Let's assume we can fetch by course ID. But we only have name. Eek.
+    // We need to update the `courses` state to be objects `{id, name}` to proceed properly.
+    // But `courses` is used as string[] everywhere. 
+
+    // Quick fix: Fetch all courses, find the one with matching name, get its ID.
+
+
+
+    // ⭐️ Load categories and subjects when selectedCourse changes
     useEffect(() => {
-        const loadCats = async () => {
-            if (selectedCourse) {
-                // Note: selectedCourse is currently the NAME. But API needs ID? 
-                // Actually, let's check CategoryService. 
-                // CategoryService.getCategories expects courseId.
-                // QuestionManagement currently treats selectedCourse as a name string.
-                // We need to find the ID corresponding to the name.
+        const loadContextData = async () => {
+            // Reset
+            setCategories([]);
+            setSubjects([]);
 
-                // Ideally we should store generic Course objects in `courses` state, not just strings.
-                // but refactoring that is big.
-                // Let's modify CategoryService to accept name IF backend supports it? 
-                // No, backend expects ID.
+            if (!selectedCourse) return;
 
-                // Workaround: We fetch all courses in loadInitialData, we should store them as objects.
-                // But for now, let's query the API or find from a list.
+            // Wait for fullCourses to be loaded
+            if (fullCourses.length === 0) return;
 
-                // Let's assume we can fetch by course ID. But we only have name. Eek.
-                // We need to update the `courses` state to be objects `{id, name}` to proceed properly.
-                // But `courses` is used as string[] everywhere. 
+            const courseObj = fullCourses.find(c => c.name === selectedCourse);
 
-                // Quick fix: Fetch all courses, find the one with matching name, get its ID.
-                const allCourses = await CourseService.getCourses();
-                const courseObj = allCourses.find((c: any) => c.name === selectedCourse);
-
-                if (courseObj) {
+            if (courseObj) {
+                try {
+                    // Load Categories
                     const cats = await CategoryService.getCategories(courseObj.id);
                     setCategories(cats.map((c: any) => c.name));
-                } else {
-                    setCategories([]);
+
+                    // Load Subjects
+                    const subs = await SubjectService.getSubjects(courseObj.id);
+                    setSubjects(subs);
+                } catch (error) {
+                    console.error("Error loading context data:", error);
                 }
-            } else {
-                setCategories([]);
             }
         };
-        loadCats();
-    }, [selectedCourse]);
+
+        loadContextData();
+    }, [selectedCourse, fullCourses]);
+
+
+    // ⭐️ Dynamic Subject Loading for Modal
+    // No need for courseName dependency here since we reverted to Read-Only Course
+    // But actually, we want to allow selecting subjects in modal based on "selectedCourse" which is fixed.
+    // So the subjects[] state is already correct from the effect above.
+
+    // ...
 
     // ...
 
@@ -303,10 +479,16 @@ export const QuestionManagement = () => {
 
     // ⭐️ Exam Creation Handlers
     const handleCreateExam = () => {
-        if (!selectedCourse) {
-            alert('과정을 먼저 선택해주세요.');
-            return;
-        }
+        // Init modal with current context
+        setNewExamData(prev => ({
+            ...prev,
+            courseName: selectedCourse || '',
+            subjectName: '',
+            topic: '',
+            title: '',
+            timeLimit: 60,
+            round: ''
+        }));
         setIsExamModalOpen(true);
     };
 
@@ -316,28 +498,103 @@ export const QuestionManagement = () => {
             return;
         }
 
-        if (!selectedCourse) {
-            alert('과정을 선택해주세요.');
+        if (!newExamData.title.trim()) {
+            alert('시험지 제목을 입력해주세요.');
             return;
         }
 
-        // Resolve Course ID from Name
-        const courseObj = fullCourses.find((c: any) => c.name === selectedCourse);
-        if (!courseObj) {
-            alert('과정 정보를 찾을 수 없습니다.');
+        if (!newExamData.courseName.trim()) {
+            alert('과정 이름을 입력해주세요.');
             return;
+        }
+
+        let courseIdToUse = '';
+        const courseNameInput = newExamData.courseName.trim();
+
+        // Check if course exists
+        const existingCourse = fullCourses.find(c => c.name === courseNameInput);
+
+        if (existingCourse) {
+            courseIdToUse = existingCourse.id;
+        } else {
+            // Create new course
+            if (confirm(`'${courseNameInput}' 과정이 존재하지 않습니다. 새로 생성하시겠습니까?`)) {
+                const courseResult = await CourseService.addCourse(courseNameInput);
+                if (courseResult.success && courseResult.courseId) {
+                    courseIdToUse = courseResult.courseId;
+                    // Refresh course list in background? 
+                    // Ideally we should reload courses but for now we proceed with the ID.
+                } else {
+                    alert(courseResult.message || '과정 생성에 실패했습니다.');
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        let subjectIdToUse = selectedSubjectId; // 기본적으로 현재 선택된 과목 사용 (NOTE: This might be stale if course changed)
+
+        // If course changed, we shouldn't use the selectedSubjectId from the *previous* course context
+        if (existingCourse && existingCourse.name !== selectedCourse) {
+            subjectIdToUse = ''; // Reset subject if course changed from the main UI selection
+        } else if (!existingCourse) {
+            subjectIdToUse = ''; // Reset if it's a new course
+        }
+
+        // 모달에서 과목명을 입력했다면, 해당 과목명 우선
+        if (newExamData.subjectName && newExamData.subjectName.trim()) {
+            const inputName = newExamData.subjectName.trim();
+
+            // We need to check subjects for the *resolved* course, not just the currently loaded 'subjects' state
+            // which might be for the *previously* selected course.
+            // But we don't have the subjects for the *new* course loaded if it's different.
+
+            // If it's a new course, it definitely has no subjects.
+            // If it's an existing course but different from selectedCourse, we'd need to fetch its subjects to check for duplicates.
+            // OR, we can just try to add it and let the backend handle duplicates? 
+            // SubjectService.addSubject takes courseId. 
+
+            // Let's rely on addSubject to return existing ID if we try to add? 
+            // No, addSubject creates new. We need to check existence.
+
+            let targetSubjects = subjects;
+            if (courseIdToUse !== (fullCourses.find(c => c.name === selectedCourse)?.id)) {
+                // If the course is different, we can't trust `subjects` state.
+                // We should fetch them or just assume we need to create/find.
+                // For now, let's just fetch them quickly.
+                targetSubjects = await SubjectService.getSubjects(courseIdToUse);
+            }
+
+            const existingSubject = targetSubjects.find(s => s.name === inputName);
+
+            if (existingSubject) {
+                subjectIdToUse = existingSubject.id;
+            } else {
+                // 새 과목 생성
+                const createResult = await SubjectService.addSubject(courseIdToUse, inputName);
+                if (createResult.success && createResult.id) {
+                    subjectIdToUse = createResult.id;
+                } else {
+                    alert('새 분류(과목) 생성에 실패했습니다.');
+                    return;
+                }
+            }
         }
 
         const result = await ExamService.createExam({
             title: newExamData.title,
-            courseName: courseObj.id, // Pass ID here, as ExamService maps this to courseId
-            timeLimit: newExamData.timeLimit
-        });
+            courseName: courseIdToUse, // Pass ID here
+            timeLimit: newExamData.timeLimit,
+            subjectId: subjectIdToUse || undefined,
+            topic: newExamData.topic || undefined, // Pass topic
+            round: newExamData.round || undefined // Pass round
+        } as any);
 
         if (result.success) {
             alert('시험지가 생성되었습니다!');
             setIsExamModalOpen(false);
-            setNewExamData({ title: '', timeLimit: 60 });
+            setNewExamData({ title: '', timeLimit: 60, subjectName: '', topic: '', courseName: '', round: '' });
 
             // Reload data
             await loadInitialData();
@@ -351,24 +608,7 @@ export const QuestionManagement = () => {
         }
     };
 
-    // ⭐️ Edit Exam Handler
-    const handleEditExamName = async () => {
-        if (!selectedExamId) return;
 
-        const currentExam = exams.find(e => e.id === selectedExamId);
-        if (!currentExam) return;
-
-        const newTitle = prompt('수정할 시험지 제목을 입력하세요:', currentExam.title);
-        if (newTitle && newTitle !== currentExam.title) {
-            const result = await ExamService.updateExam(selectedExamId, { title: newTitle });
-            if (result.success) {
-                alert('시험지 제목이 수정되었습니다.');
-                await loadInitialData();
-            } else {
-                alert(result.message || '수정에 실패했습니다.');
-            }
-        }
-    };
 
     // ⭐️ Delete Exam Handler
     const handleDeleteExam = async () => {
@@ -386,6 +626,65 @@ export const QuestionManagement = () => {
             } else {
                 alert('삭제에 실패했습니다.');
             }
+        }
+    };
+
+    // ⭐️ Open Edit Exam Modal
+    const openExamEditModal = async () => {
+        if (!selectedExamId) return;
+        const currentExam = exams.find(e => e.id === selectedExamId);
+        if (!currentExam) return;
+
+        // Load full details for timeLimit etc.
+        const fullDetail = await ExamService.getExamById(selectedExamId);
+
+        setEditExamData({
+            id: selectedExamId,
+            title: currentExam.title,
+            timeLimit: fullDetail?.timeLimit || 60,
+            subjectName: currentExam.subjectName || '',
+            topic: currentExam.topic || '',
+            round: currentExam.round || '',
+            description: fullDetail?.description || ''
+        });
+        setIsExamEditModalOpen(true);
+    };
+
+    // ⭐️ Handle Update Exam
+    const handleUpdateExam = async () => {
+        if (!editExamData.title.trim()) return alert('제목을 입력해주세요.');
+
+        // Find Subject ID if name changed or exists
+        let subjectIdToUse = undefined;
+        if (editExamData.subjectName) {
+            const currentExam = exams.find(e => e.id === selectedExamId);
+            if (currentExam && currentExam.courseId) {
+                const subjects = await SubjectService.getSubjects(currentExam.courseId);
+                const sub = subjects.find(s => s.name === editExamData.subjectName);
+                if (sub) {
+                    subjectIdToUse = sub.id;
+                } else {
+                    const newSub = await SubjectService.addSubject(currentExam.courseId, editExamData.subjectName);
+                    if (newSub.success && newSub.id) subjectIdToUse = newSub.id;
+                }
+            }
+        }
+
+        const result = await ExamService.updateExam(editExamData.id, {
+            title: editExamData.title,
+            timeLimit: editExamData.timeLimit,
+            subjectId: subjectIdToUse,
+            topic: editExamData.topic,
+            round: editExamData.round,
+            description: editExamData.description
+        });
+
+        if (result.success) {
+            alert('수정되었습니다.');
+            setIsExamEditModalOpen(false);
+            await loadInitialData();
+        } else {
+            alert('수정 실패: ' + result.message);
         }
     };
 
@@ -1110,6 +1409,8 @@ export const QuestionManagement = () => {
                                     </div>
                                 </div>
 
+
+
                                 {/* Exam Round Selector */}
                                 <div style={{ flex: 1, minWidth: '200px' }}>
                                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--slate-500)', marginBottom: '0.5rem' }}>차시/시험지(Exam)</label>
@@ -1120,8 +1421,25 @@ export const QuestionManagement = () => {
                                             onChange={(e) => setSelectedExamId(e.target.value)}
                                             disabled={availableExams.length === 0}
                                         >
-                                            {availableExams.length === 0 && <option value="">등록된 시험지가 없습니다</option>}
-                                            {availableExams.map(ex => <option key={ex.id} value={ex.id}>{ex.title}</option>)}
+                                            {availableExams.length === 0 ? (
+                                                <option value="">등록된 시험지가 없습니다</option>
+                                            ) : (
+                                                <option value="">시험지를 선택하세요</option>
+                                            )}
+                                            {availableExams.map(ex => {
+                                                // Create hierarchical label
+                                                // Create hierarchical label
+                                                const parts = [];
+                                                if (ex.subjectName) parts.push(ex.subjectName);
+                                                parts.push(ex.title);
+                                                if (ex.round) parts.push(ex.round);
+
+                                                return (
+                                                    <option key={ex.id} value={ex.id}>
+                                                        {parts.join(' - ')}
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                         <button onClick={handleCreateExam} className="btn btn-secondary" title="새 차시 추가">
                                             <Plus size={18} />
@@ -1129,12 +1447,20 @@ export const QuestionManagement = () => {
                                         {selectedExamId && (
                                             <>
                                                 <button
-                                                    onClick={handleEditExamName}
+                                                    onClick={openExamEditModal}
                                                     className="btn btn-secondary"
-                                                    title="제목 수정"
+                                                    title="시험지 정보 수정"
                                                     style={{ color: 'var(--slate-600)' }}
                                                 >
                                                     <Edit2 size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => openMoveModal(selectedExamId)}
+                                                    className="btn btn-secondary"
+                                                    title="분류 이동"
+                                                    style={{ color: 'var(--primary-600)' }}
+                                                >
+                                                    <FileUp size={18} />
                                                 </button>
                                                 <button
                                                     onClick={handleDeleteExam}
@@ -1148,15 +1474,15 @@ export const QuestionManagement = () => {
                                         )}
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Stats Preview */}
-                                <div style={{ alignSelf: 'flex-end', paddingBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-600)' }}>
-                                    {selectedExamId ? (
-                                        <span>총 <strong style={{ color: 'var(--primary-600)' }}>{questions.length}</strong> 문항 등록됨</span>
-                                    ) : (
-                                        <span>대상을 선택해주세요</span>
-                                    )}
-                                </div>
+                            {/* Stats Preview */}
+                            <div style={{ alignSelf: 'flex-end', paddingBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-600)' }}>
+                                {selectedExamId ? (
+                                    <span>총 <strong style={{ color: 'var(--primary-600)' }}>{questions.length}</strong> 문항 등록됨</span>
+                                ) : (
+                                    <span>대상을 선택해주세요</span>
+                                )}
                             </div>
                         </section>
 
@@ -1552,9 +1878,10 @@ export const QuestionManagement = () => {
                             </>
                         )}
                     </>
-                )}
+                )
+                }
 
-            </main>
+            </main >
 
             {/* Category Management Modal */}
             {
@@ -1573,8 +1900,13 @@ export const QuestionManagement = () => {
                         padding: '1rem'
                     }}
                         onClick={() => {
-                            setIsCategoryModalOpen(false);
-                            cancelEditCategory();
+                            // Prevent accidental close when dragging
+                        }}
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) {
+                                setIsCategoryModalOpen(false);
+                                cancelEditCategory();
+                            }
                         }}
                     >
                         <div
@@ -1771,8 +2103,13 @@ export const QuestionManagement = () => {
                             padding: '1rem'
                         }}
                         onClick={() => {
-                            setIsExamModalOpen(false);
-                            setNewExamData({ title: '', timeLimit: 60 });
+                            // Prevent accidental close when dragging
+                        }}
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) {
+                                setIsExamModalOpen(false);
+                                setNewExamData({ title: '', timeLimit: 60, subjectName: '', topic: '', courseName: '', round: '' });
+                            }
                         }}
                     >
                         <div
@@ -1793,7 +2130,7 @@ export const QuestionManagement = () => {
                                 <button
                                     onClick={() => {
                                         setIsExamModalOpen(false);
-                                        setNewExamData({ title: '', timeLimit: 60 });
+                                        setNewExamData({ title: '', timeLimit: 60, subjectName: '', topic: '', courseName: '', round: '' });
                                     }}
                                     style={{
                                         background: 'none',
@@ -1810,28 +2147,99 @@ export const QuestionManagement = () => {
 
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
-                                    과정
+                                    대분류 (과정)
                                 </label>
-                                <div style={{
-                                    padding: '0.75rem 1rem',
-                                    background: '#f1f5f9',
-                                    borderRadius: '0.5rem',
-                                    color: '#1e293b',
-                                    fontWeight: 600
-                                }}>
-                                    📚 {selectedCourse}
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        list="course-options"
+                                        type="text"
+                                        value={newExamData.courseName}
+                                        onChange={(e) => setNewExamData({ ...newExamData, courseName: e.target.value })}
+                                        placeholder="과정 선택 또는 새 과정 입력"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem 1rem',
+                                            border: '2px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '1rem',
+                                            outline: 'none',
+                                            background: '#f8fafc'
+                                        }}
+                                        onFocus={(e) => { e.target.style.borderColor = '#667eea'; e.target.style.background = 'white'; }}
+                                        onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; }}
+                                    />
+                                    <datalist id="course-options">
+                                        {fullCourses.map(c => (
+                                            <option key={c.id} value={c.name} />
+                                        ))}
+                                    </datalist>
                                 </div>
                             </div>
 
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
-                                    시험지 제목 *
+                                    중분류 (과목/모듈) - 선택사항
+                                </label>
+                                <input
+                                    list="subject-options"
+                                    type="text"
+                                    value={newExamData.subjectName || ''}
+                                    onChange={(e) => setNewExamData({ ...newExamData, subjectName: e.target.value })}
+                                    placeholder="선택하거나 직접 입력 (비워두기 가능)"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem',
+                                        border: '2px solid #e2e8f0',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '1rem',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => { e.target.style.borderColor = '#667eea'; }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e2e8f0';
+                                    }}
+                                />
+                                <datalist id="subject-options">
+                                    {subjects.map(sub => (
+                                        <option key={sub.id} value={sub.name} />
+                                    ))}
+                                </datalist>
+                                <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                    * 선택 사항: 비워두면 대분류(과정)에 바로 포함됩니다.
+                                </p>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
+                                    소분류 (시험지 제목) *
                                 </label>
                                 <input
                                     type="text"
                                     value={newExamData.title}
                                     onChange={(e) => setNewExamData({ ...newExamData, title: e.target.value })}
                                     placeholder="예: 2024년 1회차 정기시험"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem',
+                                        border: '2px solid #e2e8f0',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '1rem',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
+                                    차시 (회차)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newExamData.round || ''}
+                                    onChange={(e) => setNewExamData({ ...newExamData, round: e.target.value })}
+                                    placeholder="예: 1차시, 2024-1"
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem 1rem',
@@ -1864,18 +2272,43 @@ export const QuestionManagement = () => {
                                         border: '2px solid #e2e8f0',
                                         borderRadius: '0.5rem',
                                         fontSize: '1rem',
-                                        outline: 'none'
+                                        outline: 'none',
+                                        opacity: newExamData.timeLimit === 0 ? 0.5 : 1
                                     }}
                                     onFocus={(e) => e.target.style.borderColor = '#667eea'}
                                     onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                    disabled={newExamData.timeLimit === 0}
                                 />
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    marginTop: '0.75rem',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    color: '#64748b'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={newExamData.timeLimit === 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setNewExamData({ ...newExamData, timeLimit: 0 });
+                                            } else {
+                                                setNewExamData({ ...newExamData, timeLimit: 60 });
+                                            }
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    제한시간 설정 없음
+                                </label>
                             </div>
 
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
                                     onClick={() => {
                                         setIsExamModalOpen(false);
-                                        setNewExamData({ title: '', timeLimit: 60 });
+                                        setNewExamData({ title: '', timeLimit: 60, subjectName: '', topic: '', courseName: '', round: '' });
                                     }}
                                     style={{
                                         flex: 1,
@@ -1930,7 +2363,9 @@ export const QuestionManagement = () => {
                             zIndex: 1100,
                             padding: '1rem'
                         }}
-                        onClick={() => setShowApiKeyModal(false)}
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) setShowApiKeyModal(false);
+                        }}
                     >
                         <div
                             onClick={(e) => e.stopPropagation()}
@@ -2006,199 +2441,406 @@ export const QuestionManagement = () => {
             }
 
             {/* ⭐️ AI 유사 문제 생성 모달 */}
-            {showSimilarModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000, padding: '1rem'
-                }}>
+            {
+                showSimilarModal && (
                     <div style={{
-                        background: 'white', borderRadius: '1rem', padding: '2rem',
-                        maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Sparkles size={20} color="white" />
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 1000, padding: '1rem'
+                    }}
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) setShowSimilarModal(false);
+                        }}
+                    >
+                        <div style={{
+                            background: 'white', borderRadius: '1rem', padding: '2rem',
+                            maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Sparkles size={20} color="white" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>AI 유사 문제 생성</h3>
+                                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>원본 문제를 바탕으로 새로운 문제를 생성합니다</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>AI 유사 문제 생성</h3>
-                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>원본 문제를 바탕으로 새로운 문제를 생성합니다</p>
+                                <button onClick={() => { setShowSimilarModal(false); setGeneratedQuestions([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+                                    <X size={24} color="#94a3b8" />
+                                </button>
+                            </div>
+
+                            {/* 원본 문제 */}
+                            {generatingForQuestion && (
+                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>📌 원본 문제</div>
+                                    <div style={{ fontWeight: 600, color: '#334155' }}>{generatingForQuestion.text}</div>
                                 </div>
-                            </div>
-                            <button onClick={() => { setShowSimilarModal(false); setGeneratedQuestions([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
-                                <X size={24} color="#94a3b8" />
-                            </button>
-                        </div>
+                            )}
 
-                        {/* 원본 문제 */}
-                        {generatingForQuestion && (
-                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>📌 원본 문제</div>
-                                <div style={{ fontWeight: 600, color: '#334155' }}>{generatingForQuestion.text}</div>
-                            </div>
-                        )}
-
-                        {/* 로딩 */}
-                        {isAiProcessing && (
-                            <div style={{ textAlign: 'center', padding: '3rem' }}>
-                                <div style={{
-                                    width: '50px', height: '50px', border: '4px solid #e2e8f0',
-                                    borderTopColor: '#7c3aed', borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
-                                }} />
-                                <p style={{ color: '#64748b' }}>AI가 유사 문제를 생성하고 있습니다...</p>
-                                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                            </div>
-                        )}
-
-                        {/* 생성된 문제 목록 */}
-                        {!isAiProcessing && generatedQuestions.length > 0 && (
-                            <>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <span style={{ fontWeight: 600, color: '#334155' }}>✨ 생성된 문제 ({generatedQuestions.length}개)</span>
-                                    <button
-                                        onClick={handleAddAllGeneratedQuestions}
-                                        className="btn btn-primary"
-                                        style={{ background: '#7c3aed', borderColor: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                    >
-                                        <CheckCircle size={16} /> 모두 추가
-                                    </button>
+                            {/* 로딩 */}
+                            {isAiProcessing && (
+                                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                                    <div style={{
+                                        width: '50px', height: '50px', border: '4px solid #e2e8f0',
+                                        borderTopColor: '#7c3aed', borderRadius: '50%',
+                                        animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
+                                    }} />
+                                    <p style={{ color: '#64748b' }}>AI가 유사 문제를 생성하고 있습니다...</p>
+                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                                 </div>
+                            )}
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {generatedQuestions.map((genQ, idx) => (
-                                        <div key={idx} style={{
-                                            background: 'white', padding: '1.25rem', borderRadius: '0.75rem',
-                                            border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '1rem' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 600, marginBottom: '0.75rem', color: '#1e293b' }}>
-                                                        {idx + 1}. {genQ.text}
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                                        {genQ.options.map((opt: string, optIdx: number) => (
-                                                            <div key={optIdx} style={{
-                                                                padding: '0.5rem 0.75rem',
-                                                                borderRadius: '0.5rem',
-                                                                fontSize: '0.9rem',
-                                                                background: genQ.correctAnswer === optIdx ? '#dcfce7' : '#f8fafc',
-                                                                border: genQ.correctAnswer === optIdx ? '1px solid #16a34a' : '1px solid #e2e8f0',
-                                                                color: genQ.correctAnswer === optIdx ? '#16a34a' : '#475569',
-                                                                fontWeight: genQ.correctAnswer === optIdx ? 600 : 400
-                                                            }}>
-                                                                {optIdx + 1}. {opt} {genQ.correctAnswer === optIdx && '✓'}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    {genQ.explanation && (
-                                                        <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}>
-                                                            💡 {genQ.explanation}
+                            {/* 생성된 문제 목록 */}
+                            {!isAiProcessing && generatedQuestions.length > 0 && (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <span style={{ fontWeight: 600, color: '#334155' }}>✨ 생성된 문제 ({generatedQuestions.length}개)</span>
+                                        <button
+                                            onClick={handleAddAllGeneratedQuestions}
+                                            className="btn btn-primary"
+                                            style={{ background: '#7c3aed', borderColor: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                        >
+                                            <CheckCircle size={16} /> 모두 추가
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {generatedQuestions.map((genQ, idx) => (
+                                            <div key={idx} style={{
+                                                background: 'white', padding: '1.25rem', borderRadius: '0.75rem',
+                                                border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '1rem' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 600, marginBottom: '0.75rem', color: '#1e293b' }}>
+                                                            {idx + 1}. {genQ.text}
                                                         </div>
-                                                    )}
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                            {genQ.options.map((opt: string, optIdx: number) => (
+                                                                <div key={optIdx} style={{
+                                                                    padding: '0.5rem 0.75rem',
+                                                                    borderRadius: '0.5rem',
+                                                                    fontSize: '0.9rem',
+                                                                    background: genQ.correctAnswer === optIdx ? '#dcfce7' : '#f8fafc',
+                                                                    border: genQ.correctAnswer === optIdx ? '1px solid #16a34a' : '1px solid #e2e8f0',
+                                                                    color: genQ.correctAnswer === optIdx ? '#16a34a' : '#475569',
+                                                                    fontWeight: genQ.correctAnswer === optIdx ? 600 : 400
+                                                                }}>
+                                                                    {optIdx + 1}. {opt} {genQ.correctAnswer === optIdx && '✓'}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        {genQ.explanation && (
+                                                            <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}>
+                                                                💡 {genQ.explanation}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleAddGeneratedQuestion(genQ, idx)}
+                                                        className="btn btn-secondary"
+                                                        style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', color: '#16a34a' }}
+                                                    >
+                                                        <Plus size={16} /> 추가
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleAddGeneratedQuestion(genQ, idx)}
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', color: '#16a34a' }}
-                                                >
-                                                    <Plus size={16} /> 추가
-                                                </button>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
+                                        ))}
+                                    </div>
+                                </>
+                            )}
 
-                        {/* 모든 문제 추가 완료 */}
-                        {!isAiProcessing && generatedQuestions.length === 0 && generatingForQuestion && (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                                모든 문제가 추가되었습니다! 👍
-                            </div>
-                        )}
+                            {/* 모든 문제 추가 완료 */}
+                            {!isAiProcessing && generatedQuestions.length === 0 && generatingForQuestion && (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                                    모든 문제가 추가되었습니다! 👍
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ⭐️ Course Description Edit Modal */}
-            {showCourseEditModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000, padding: '1rem'
-                }}>
+            {
+                showCourseEditModal && (
                     <div style={{
-                        background: 'white', borderRadius: '1rem', padding: '2rem',
-                        maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>과정 소개 편집 ({selectedCourse})</h3>
-                            <button onClick={() => setShowCourseEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
-                                <X size={24} color="#94a3b8" />
-                            </button>
-                        </div>
-
-                        <div style={{ display: 'grid', gap: '1.5rem' }}>
-                            <div>
-                                <label className="input-label">과정 설명 (Description)</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={4}
-                                    value={editCourseDetails.description}
-                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, description: e.target.value })}
-                                    placeholder="과정에 대한 전반적인 설명을 입력하세요."
-                                />
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 1000, padding: '1rem'
+                    }}
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) setShowCourseEditModal(false);
+                        }}
+                    >
+                        <div style={{
+                            background: 'white', borderRadius: '1rem', padding: '2rem',
+                            maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>과정 소개 편집 ({selectedCourse})</h3>
+                                <button onClick={() => setShowCourseEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+                                    <X size={24} color="#94a3b8" />
+                                </button>
                             </div>
 
-                            <div>
-                                <label className="input-label">학습 대상 (Targets) - 콤마(,)로 구분</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={editCourseDetails.targets}
-                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, targets: e.target.value })}
-                                    placeholder="예: 취업 준비생, 실무자, 초보자"
-                                    style={{ width: '100%', padding: '0.75rem' }}
-                                />
+                            <div style={{ display: 'grid', gap: '1.5rem' }}>
+                                <div>
+                                    <label className="input-label">과정 설명 (Rich Text Editor)</label>
+                                    <div style={{ height: '300px', marginBottom: '3rem' }}>
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={editCourseDetails.description}
+                                            onChange={(content) => setEditCourseDetails({ ...editCourseDetails, description: content })}
+                                            style={{ height: '250px' }}
+                                            modules={{
+                                                toolbar: [
+                                                    [{ 'header': [1, 2, false] }],
+                                                    ['bold', 'italic', 'underline', 'strike'],
+                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                                    ['link', 'image'],
+                                                    ['clean']
+                                                ],
+                                            }}
+                                            placeholder="과정에 대한 설명을 입력하세요. 이미지도 삽입할 수 있습니다."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="input-label">학습 대상 (Targets) - 콤마(,)로 구분</label>
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        value={editCourseDetails.targets}
+                                        onChange={e => setEditCourseDetails({ ...editCourseDetails, targets: e.target.value })}
+                                        placeholder="예: 취업 준비생, 실무자, 초보자"
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="input-label">주요 특징 (Features) - 콤마(,)로 구분</label>
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        value={editCourseDetails.features}
+                                        onChange={e => setEditCourseDetails({ ...editCourseDetails, features: e.target.value })}
+                                        placeholder="예: 실전 모의고사, AI 분석, 무제한 응시"
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="input-label">이용 방법 (How To Use) - 줄바꿈으로 구분</label>
+                                    <textarea
+                                        className="input-field"
+                                        rows={5}
+                                        value={editCourseDetails.howToUse}
+                                        onChange={e => setEditCourseDetails({ ...editCourseDetails, howToUse: e.target.value })}
+                                        placeholder="1. 회원가입 후 신청&#13;&#10;2. 승인 대기&#13;&#10;3. 학습 시작"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="input-label">주요 특징 (Features) - 콤마(,)로 구분</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={editCourseDetails.features}
-                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, features: e.target.value })}
-                                    placeholder="예: 실전 모의고사, AI 분석, 무제한 응시"
-                                    style={{ width: '100%', padding: '0.75rem' }}
-                                />
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', gap: '1rem' }}>
+                                <button className="btn btn-secondary" onClick={() => setShowCourseEditModal(false)}>취소</button>
+                                <button className="btn btn-primary" onClick={handleSaveCourseDetails} style={{ background: '#0ea5e9', borderColor: '#0ea5e9' }}>
+                                    저장하기
+                                </button>
                             </div>
-
-                            <div>
-                                <label className="input-label">이용 방법 (How To Use) - 줄바꿈으로 구분</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={5}
-                                    value={editCourseDetails.howToUse}
-                                    onChange={e => setEditCourseDetails({ ...editCourseDetails, howToUse: e.target.value })}
-                                    placeholder="1. 회원가입 후 신청&#13;&#10;2. 승인 대기&#13;&#10;3. 학습 시작"
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', gap: '1rem' }}>
-                            <button className="btn btn-secondary" onClick={() => setShowCourseEditModal(false)}>취소</button>
-                            <button className="btn btn-primary" onClick={handleSaveCourseDetails} style={{ background: '#0ea5e9', borderColor: '#0ea5e9' }}>
-                                저장하기
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* ⭐️ Subject Management Modal */}
+            {
+                showSubjectModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+                    }}>
+                        <div className="glass-card" style={{ background: 'white', padding: '2rem', width: '500px', maxWidth: '95%', maxHeight: '80vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>분류(과목) 관리 - {selectedCourse}</h3>
+                                <button onClick={() => setShowSubjectModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+                                    <X size={24} color="#64748b" />
+                                </button>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        className="input-field"
+                                        placeholder="새 분류 이름 입력"
+                                        value={subjectInputName}
+                                        onChange={e => setSubjectInputName(e.target.value)}
+                                    />
+                                    {editingSubject ? (
+                                        <>
+                                            <button onClick={handleUpdateSubject} className="btn btn-primary">수정</button>
+                                            <button onClick={() => { setEditingSubject(null); setSubjectInputName(''); }} className="btn btn-secondary">취소</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={handleAddSubject} className="btn btn-primary">추가</button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {subjects.map(sub => (
+                                    <div key={sub.id} style={{
+                                        padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '0.5rem',
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        background: editingSubject?.id === sub.id ? '#f0f9ff' : 'white'
+                                    }}>
+                                        <span style={{ fontWeight: 500 }}>{sub.name}</span>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => { setEditingSubject(sub); setSubjectInputName(sub.name); }} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>수정</button>
+                                            <button onClick={(e) => handleDeleteSubject(e, sub.id)} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: '#fee2e2', color: '#ef4444' }}>삭제</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {subjects.length === 0 && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '1rem' }}>등록된 분류가 없습니다.</div>}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ⭐️ Exam Move Modal */}
+            {
+                showMoveModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+                    }}>
+                        <div className="glass-card" style={{ background: 'white', padding: '2rem', width: '400px', maxWidth: '95%' }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>차시/시험지 이동</h3>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label className="input-label">이동할 과정</label>
+                                <select
+                                    className="input-field"
+                                    value={moveTargetCourseId}
+                                    onChange={e => setMoveTargetCourseId(e.target.value)}
+                                >
+                                    <option value="">과정 선택</option>
+                                    {fullCourses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label className="input-label">이동할 분류(과목)</label>
+                                <select
+                                    className="input-field"
+                                    value={moveTargetSubjectId}
+                                    onChange={e => setMoveTargetSubjectId(e.target.value)}
+                                >
+                                    <option value="">분류(과목) 선택 (선택 안함: 미분류)</option>
+                                    {moveTargetSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                <button onClick={() => setShowMoveModal(false)} className="btn btn-secondary">취소</button>
+                                <button onClick={handleMoveExam} className="btn btn-primary">이동 확인</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ⭐️ Exam Edit Modal (New) */}
+            {
+                isExamEditModalOpen && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '1rem', width: '90%', maxWidth: '500px' }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>시험지 정보 수정</h3>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label className="input-label">중분류 (과목)</label>
+                                <input
+                                    className="input-field"
+                                    list="edit-subject-options"
+                                    value={editExamData.subjectName}
+                                    onChange={e => setEditExamData({ ...editExamData, subjectName: e.target.value })}
+                                    placeholder="과목 입력"
+                                />
+                                <datalist id="edit-subject-options">
+                                    {subjects.map(s => <option key={s.id} value={s.name} />)}
+                                </datalist>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label className="input-label">소분류 (시험지 제목)</label>
+                                <input className="input-field" value={editExamData.title} onChange={e => setEditExamData({ ...editExamData, title: e.target.value })} />
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label className="input-label">차시 (회차)</label>
+                                <input className="input-field" value={editExamData.round} onChange={e => setEditExamData({ ...editExamData, round: e.target.value })} />
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label className="input-label">제한시간 (분)</label>
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    value={editExamData.timeLimit === 0 ? '' : editExamData.timeLimit}
+                                    onChange={e => setEditExamData({ ...editExamData, timeLimit: parseInt(e.target.value) || 60 })}
+                                    disabled={editExamData.timeLimit === 0}
+                                    style={{ opacity: editExamData.timeLimit === 0 ? 0.5 : 1 }}
+                                />
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    marginTop: '0.75rem',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    color: '#64748b'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={editExamData.timeLimit === 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setEditExamData({ ...editExamData, timeLimit: 0 });
+                                            } else {
+                                                setEditExamData({ ...editExamData, timeLimit: 60 });
+                                            }
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    제한시간 설정 없음
+                                </label>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                <button className="btn btn-secondary" onClick={() => setIsExamEditModalOpen(false)}>취소</button>
+                                <button className="btn btn-primary" onClick={handleUpdateExam}>저장</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 };
+
+
+
+
+
+
+
+

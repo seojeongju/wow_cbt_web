@@ -16,7 +16,7 @@ export const ExamPlayer = () => {
     const [loading, setLoading] = useState(true);
     const [currentIdx, setCurrentIdx] = useState(0);
     const [answers, setAnswers] = useState<{ [key: string]: number | string }>({});
-    const [showResult, setShowResult] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Load Exam Data
     useEffect(() => {
@@ -32,6 +32,14 @@ export const ExamPlayer = () => {
             setLoading(false);
         };
         fetchExam();
+
+        // Screen size detection
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, [examId, navigate]);
 
     // Keyboard navigation
@@ -47,6 +55,21 @@ export const ExamPlayer = () => {
 
     if (loading) return <div className="flex-center" style={{ height: '100vh' }}>시험지를 가져오는 중입니다...</div>;
     if (!exam) return null;
+
+    // Check if exam has questions
+    if (!exam.questions || exam.questions.length === 0) {
+        return (
+            <div className="flex-center" style={{ height: '100vh', flexDirection: 'column', gap: '1rem' }}>
+                <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', background: 'white' }}>
+                    <h1 style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--slate-700)' }}>시험 문제가 없습니다</h1>
+                    <p style={{ fontSize: '1.1rem', color: 'var(--slate-500)', marginBottom: '2rem' }}>
+                        이 시험지에는 아직 등록된 문제가 없습니다.
+                    </p>
+                    <button onClick={() => navigate(-1)} className="btn btn-primary">이전 페이지로 돌아가기</button>
+                </div>
+            </div>
+        );
+    }
 
     const handleAnswer = (answer: number | string) => {
         setAnswers(prev => ({
@@ -74,7 +97,7 @@ export const ExamPlayer = () => {
                 }, 0);
 
                 await ExamService.submitExamResult(exam.id, answers, score);
-                setShowResult(true);
+                navigate(-1);
             } catch (error) {
                 console.error('Failed to submit exam', error);
                 alert('답안 제출 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -85,51 +108,47 @@ export const ExamPlayer = () => {
     // New Exit Handler
     const handleExit = () => {
         if (window.confirm('시험을 종료하고 나가시겠습니까?\n작성 중인 답안은 저장되지 않습니다.')) {
-            navigate('/student/dashboard');
+            navigate(-1);
         }
     };
 
-    if (showResult) {
-        const score = exam.questions.reduce((acc, q) => {
-            const isCorrect = typeof q.correctAnswer === 'number'
-                ? answers[q.id] === q.correctAnswer
-                : (answers[q.id] as string)?.trim() === (q.correctAnswer as unknown as string)?.trim();
-            return acc + (isCorrect ? 1 : 0);
-        }, 0);
+
+    const question = exam.questions[currentIdx];
+
+    // Safety check for question data
+    if (!question) {
         return (
-            <div className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column' }}>
+            <div className="flex-center" style={{ height: '100vh', flexDirection: 'column', gap: '1rem' }}>
                 <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', background: 'white' }}>
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>시험 종료!</h1>
-                    <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
-                        당신의 점수는 <span className="text-primary" style={{ fontWeight: 700 }}>{Math.round(score * (100 / exam.questions.length))}점</span> 입니다.
+                    <h1 style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--slate-700)' }}>문제를 불러올 수 없습니다</h1>
+                    <p style={{ fontSize: '1.1rem', color: 'var(--slate-500)', marginBottom: '2rem' }}>
+                        현재 문제 데이터를 가져올 수 없습니다.
                     </p>
-                    <button onClick={() => navigate('/student/dashboard')} className="btn btn-primary">대시보드로 돌아가기</button>
+                    <button onClick={() => navigate(-1)} className="btn btn-primary">이전 페이지로 돌아가기</button>
                 </div>
             </div>
         );
     }
 
-    const question = exam.questions[currentIdx];
-
     return (
         <div style={{ minHeight: '100vh', background: 'var(--slate-50)', paddingBottom: '2rem' }}>
             {/* Header - Custom for Exam (No Layout) */}
-            <header style={{ background: 'white', borderBottom: '1px solid var(--slate-200)', padding: '1rem 0', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--slate-800)' }}>
-                        {exam.title}
+            <header style={{ background: 'white', borderBottom: '1px solid var(--slate-200)', padding: isMobile ? '0.75rem 0' : '1rem 0', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '0 0.75rem' : '0 1.5rem', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: isMobile ? '0.5rem' : '0' }}>
+                    <div style={{ fontWeight: 700, fontSize: isMobile ? '0.95rem' : '1.25rem', color: '#334155', flex: isMobile ? '1 1 100%' : 'initial' }}>
+                        {isMobile ? (exam.title.length > 20 ? exam.title.substring(0, 20) + '...' : exam.title) : exam.title}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                        <Timer initialTime={exam.timeLimit} onTimeUp={() => alert('시간 종료!')} />
+                    <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.75rem', alignItems: 'center' }}>
+                        {exam.timeLimit > 0 && <Timer initialTime={exam.timeLimit} onTimeUp={() => alert('시간 종료!')} />}
                         <button
                             onClick={handleExit}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                padding: '0.625rem 1.25rem',
+                                padding: isMobile ? '0.5rem 0.875rem' : '0.625rem 1.25rem',
                                 border: '1.5px solid var(--slate-300)',
                                 background: 'white',
                                 color: 'var(--slate-600)',
-                                fontSize: '0.875rem',
+                                fontSize: isMobile ? '0.75rem' : '0.875rem',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                                 borderRadius: '0.5rem',
@@ -146,15 +165,15 @@ export const ExamPlayer = () => {
                                 e.currentTarget.style.color = 'var(--slate-600)';
                             }}
                         >
-                            <LogOut size={16} />
-                            나가기
+                            <LogOut size={isMobile ? 14 : 16} />
+                            {isMobile ? '나가' : '나가기'}
                         </button>
                         <button
                             className="btn btn-accent"
                             onClick={submitExam}
                             style={{
-                                fontSize: '0.875rem',
-                                padding: '0.625rem 1.5rem',
+                                fontSize: isMobile ? '0.75rem' : '0.875rem',
+                                padding: isMobile ? '0.5rem 1rem' : '0.625rem 1.5rem',
                                 fontWeight: 600
                             }}
                         >
@@ -164,7 +183,7 @@ export const ExamPlayer = () => {
                 </div>
             </header>
 
-            <main className="container" style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
+            <main className="container" style={{ marginTop: isMobile ? '1rem' : '2rem', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: isMobile ? '1rem' : '2rem', padding: isMobile ? '0 0.75rem' : '0 1.5rem' }}>
 
                 {/* Left: Question Area */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -182,7 +201,7 @@ export const ExamPlayer = () => {
                                 {currentIdx + 1}번
                             </span>
                             {/* Hide 'AI 추출' badge if category matches */}
-                            {question.category !== 'AI 추출' && (
+                            {question.category && question.category !== 'AI 추출' && (
                                 <span style={{ background: 'var(--primary-50)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-700)' }}>
                                     {question.category}
                                 </span>
@@ -273,6 +292,20 @@ export const ExamPlayer = () => {
                             다음 문제 <ChevronRight size={20} />
                         </button>
                     </div>
+                    
+                    {/* Last Question Notice */}
+                    {currentIdx === exam.questions.length - 1 && (
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '1.5rem', 
+                            color: 'var(--slate-600)', 
+                            fontSize: '1rem',
+                            fontWeight: 500,
+                            marginTop: '1rem'
+                        }}>
+                            더이상 문제가 없습니다.
+                        </div>
+                    )}
                 </div>
 
                 {/* Right: OMR */}

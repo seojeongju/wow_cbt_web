@@ -5,11 +5,12 @@ import {
     Play, BookOpen, AlertCircle, PlusCircle, X,
     Trophy, Target, BarChart2, Clock, CheckCircle, GraduationCap, LayoutDashboard, ChevronRight, Award, Home
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AuthService } from '../../services/authService';
 import { ExamService } from '../../services/examService';
 import { CourseService } from '../../services/courseService';
 import { User, ExamResult, Course } from '../../types';
+import { CourseDetailModal } from '../../components/student/CourseDetailModal';
 
 // Components
 const SectionTitle = ({ children, icon: Icon }: any) => (
@@ -36,10 +37,11 @@ const CourseCard = ({ title, status, expiresAt, isSelected, onClick }: any) => {
                 cursor: isPending ? 'default' : 'pointer',
                 position: 'relative',
                 overflow: 'hidden',
-                minHeight: '100px', // Reduced height (was 160px)
+                height: '100%',
+                minHeight: '140px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
                 gap: '0.25rem'
             }}
         >
@@ -72,35 +74,157 @@ const CourseCard = ({ title, status, expiresAt, isSelected, onClick }: any) => {
     );
 };
 
-const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge }: any) => (
-    <motion.button
-        whileHover={!disabled ? { y: -5, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' } : undefined}
-        onClick={onClick}
-        disabled={disabled}
-        style={{
-            background: 'white', padding: '1.5rem', borderRadius: '1.5rem', border: 'none',
-            textAlign: 'left', cursor: disabled ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-            display: 'flex', alignItems: 'start', gap: '1rem', width: '100%', position: 'relative',
-            opacity: disabled ? 0.6 : 1,
-            filter: disabled ? 'grayscale(1)' : 'none'
-        }}
-    >
-        <div style={{
-            minWidth: '48px', height: '48px', borderRadius: '1rem', background: color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-            {icon}
-        </div>
-        <div style={{ flex: 1 }}>
-            <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.3rem' }}>
-                {title}
-                {badge && <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '1rem' }}>{badge}</span>}
-            </h4>
-            <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: 1.4 }}>{desc}</p>
-        </div>
-    </motion.button>
-);
+const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrimary }: any) => {
+    // 실전 모의고사는 특별한 스타일 적용
+    if (isPrimary) {
+        return (
+            <motion.button
+                whileHover={{ y: -8, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClick}
+                disabled={disabled}
+                style={{
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%)',
+                    padding: '1.75rem', 
+                    borderRadius: '1.5rem', 
+                    border: 'none',
+                    textAlign: 'left', 
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 20px 40px -10px rgba(79, 70, 229, 0.4), 0 0 0 3px rgba(99, 102, 241, 0.1)',
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'start', 
+                    gap: '1rem', 
+                    width: '100%', 
+                    position: 'relative',
+                    overflow: 'hidden',
+                    opacity: disabled ? 0.6 : 1,
+                    filter: disabled ? 'grayscale(1)' : 'none',
+                    minHeight: '160px'
+                }}
+            >
+                {/* 배경 장식 요소 */}
+                <div style={{
+                    position: 'absolute',
+                    top: '-40px',
+                    right: '-40px',
+                    width: '150px',
+                    height: '150px',
+                    background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)',
+                    borderRadius: '50%'
+                }} />
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', width: '100%', position: 'relative', zIndex: 1 }}>
+                    <motion.div 
+                        animate={{ 
+                            scale: [1, 1.1, 1],
+                            boxShadow: [
+                                '0 0 0 0 rgba(255,255,255,0.4)',
+                                '0 0 0 8px rgba(255,255,255,0)',
+                                '0 0 0 0 rgba(255,255,255,0)'
+                            ]
+                        }}
+                        transition={{ 
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                        }}
+                        style={{
+                            minWidth: '56px', 
+                            height: '56px', 
+                            borderRadius: '1.25rem', 
+                            background: 'rgba(255,255,255,0.25)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            border: '2px solid rgba(255,255,255,0.3)'
+                        }}
+                    >
+                        {icon && React.cloneElement(icon, { size: 28, color: 'white' })}
+                    </motion.div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                            <h4 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white', margin: 0 }}>
+                                {title}
+                            </h4>
+                            {badge && (
+                                <span style={{ 
+                                    fontSize: '0.7rem', 
+                                    background: 'rgba(255,255,255,0.3)', 
+                                    color: 'white', 
+                                    padding: '0.25rem 0.7rem', 
+                                    borderRadius: '0.875rem',
+                                    fontWeight: 600,
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    {badge}
+                                </span>
+                            )}
+                        </div>
+                        <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.95)', lineHeight: 1.4, fontWeight: 500 }}>
+                            {desc}
+                        </p>
+                    </div>
+                </div>
+                
+                {/* CTA 버튼 */}
+                <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    style={{
+                        position: 'relative',
+                        zIndex: 1,
+                        alignSelf: 'flex-end',
+                        marginTop: 'auto',
+                        padding: '0.7rem 1.75rem',
+                        background: 'rgba(255,255,255,0.95)',
+                        color: '#4f46e5',
+                        borderRadius: '0.875rem',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    }}
+                >
+                    지금 시작하기 <ChevronRight size={18} />
+                </motion.div>
+            </motion.button>
+        );
+    }
+    
+    // 일반 카드 스타일
+    return (
+        <motion.button
+            whileHover={!disabled ? { y: -5, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' } : undefined}
+            onClick={onClick}
+            disabled={disabled}
+            style={{
+                background: 'white', padding: '1.5rem', borderRadius: '1.5rem', border: 'none',
+                textAlign: 'left', cursor: disabled ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                display: 'flex', alignItems: 'start', gap: '1rem', width: '100%', position: 'relative',
+                opacity: disabled ? 0.6 : 1,
+                filter: disabled ? 'grayscale(1)' : 'none'
+            }}
+        >
+            <div style={{
+                minWidth: '48px', height: '48px', borderRadius: '1rem', background: color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+                {icon}
+            </div>
+            <div style={{ flex: 1 }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.3rem' }}>
+                    {title}
+                    {badge && <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '1rem' }}>{badge}</span>}
+                </h4>
+                <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: 1.4 }}>{desc}</p>
+            </div>
+        </motion.button>
+    );
+};
 
 export const StudentDashboard = () => {
     const navigate = useNavigate();
@@ -117,6 +241,13 @@ export const StudentDashboard = () => {
     // Enrollment Modal State
     const [showEnrollModal, setShowEnrollModal] = useState(false);
     const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+
+    // Course Detail Modal State
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedDetailCourse, setSelectedDetailCourse] = useState<Course | null>(null);
+
+    // Learning Tools Section Ref
+    const learningToolsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const initDashboard = async () => {
@@ -210,6 +341,17 @@ export const StudentDashboard = () => {
         }
     };
 
+    const handleCourseClick = (courseName: string) => {
+        setSelectedCourse(courseName);
+        // 학습 도구 섹션으로 스크롤
+        setTimeout(() => {
+            learningToolsRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 100);
+    };
+
     if (!user) return null;
 
     const activeEnrollments = (user.courseEnrollments || []).filter(e => e.status === 'active' || e.status === 'approved');
@@ -285,7 +427,7 @@ export const StudentDashboard = () => {
                     </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem', alignItems: 'stretch' }}>
                     {/* Active Courses */}
                     {activeEnrollments.map((enrollment, idx) => (
                         <CourseCard
@@ -294,10 +436,7 @@ export const StudentDashboard = () => {
                             status={enrollment.status}
                             expiresAt={enrollment.expiresAt}
                             isSelected={selectedCourse === enrollment.courseName}
-                            onClick={() => {
-                                console.log('✅ Course Clicked:', enrollment.courseName);
-                                setSelectedCourse(enrollment.courseName);
-                            }}
+                            onClick={() => handleCourseClick(enrollment.courseName)}
                         />
                     ))}
 
@@ -319,7 +458,7 @@ export const StudentDashboard = () => {
                             style={{
                                 background: '#f8fafc',
                                 border: '2px dashed #cbd5e1',
-                                borderRadius: '1.25rem',
+                                borderRadius: '1rem',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
@@ -327,7 +466,8 @@ export const StudentDashboard = () => {
                                 gap: '0.75rem',
                                 color: '#64748b',
                                 cursor: 'pointer',
-                                minHeight: '160px'
+                                height: '100%',
+                                minHeight: '140px'
                             }}
                         >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -341,6 +481,7 @@ export const StudentDashboard = () => {
                 {/* 4. Learning Tools (Only visible when course selected) */}
                 {selectedCourse ? (
                     <motion.div
+                        ref={learningToolsRef}
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
@@ -358,30 +499,36 @@ export const StudentDashboard = () => {
                             </SectionTitle>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* 실전 모의고사 - 강조된 메인 카드 */}
                             <ActionCard
                                 title="실전 모의고사"
                                 desc="실제 시험과 동일한 환경에서 테스트해보세요."
                                 icon={<Play size={24} color="#6366f1" />}
                                 color="#e0e7ff"
                                 onClick={() => navigate(`/student/exam?course=${encodeURIComponent(selectedCourse)}`)}
+                                isPrimary={true}
                             />
-                            <ActionCard
-                                title="오답 노트"
-                                desc="틀린 문제를 다시 풀며 약점을 보완하세요."
-                                icon={<AlertCircle size={24} color="#ef4444" />}
-                                color="#fee2e2"
-                                onClick={() => navigate('/student/review')}
-                                badge={`${stats.totalExams > 0 ? '학습중' : ''}`}
-                            />
-                            <ActionCard
-                                title="성적 분석"
-                                desc="나의 학습 성취도와 합격 확률을 확인하세요."
-                                icon={<BarChart2 size={24} color="#10b981" />}
-                                color="#d1fae5"
-                                onClick={() => navigate('/student/analytics')}
-                                badge={stats.totalExams === 0 ? '데이터 부족' : undefined}
-                            />
+                            
+                            {/* 오답 노트 & 성적 분석 - 나란히 배치 */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
+                                <ActionCard
+                                    title="오답 노트"
+                                    desc="틀린 문제를 다시 풀며 약점을 보완하세요."
+                                    icon={<AlertCircle size={24} color="#ef4444" />}
+                                    color="#fee2e2"
+                                    onClick={() => navigate('/student/review')}
+                                    badge={`${stats.totalExams > 0 ? '학습중' : ''}`}
+                                />
+                                <ActionCard
+                                    title="성적 분석"
+                                    desc="나의 학습 성취도와 합격 확률을 확인하세요."
+                                    icon={<BarChart2 size={24} color="#10b981" />}
+                                    color="#d1fae5"
+                                    onClick={() => navigate('/student/analytics')}
+                                    badge={stats.totalExams === 0 ? '데이터 부족' : undefined}
+                                />
+                            </div>
                         </div>
                     </motion.div>
                 ) : (
@@ -499,15 +646,18 @@ export const StudentDashboard = () => {
                                                         {(course as any).category || '자격증'}
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleEnroll(course.id, course.name)}
-                                                    style={{
-                                                        padding: '0.5rem 1rem', background: '#6366f1', color: 'white',
-                                                        border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem'
-                                                    }}
-                                                >
-                                                    신청
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button
+                                                        onClick={() => { setSelectedDetailCourse(course); setShowDetailModal(true); }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem', background: '#6366f1', color: 'white',
+                                                            border: 'none', borderRadius: '0.5rem',
+                                                            cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', flex: 1
+                                                        }}
+                                                    >
+                                                        신청하기
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -522,6 +672,14 @@ export const StudentDashboard = () => {
                 )}
             </main>
 
+            {/* Course Detail Modal */}
+            {showDetailModal && selectedDetailCourse && (
+                <CourseDetailModal
+                    course={selectedDetailCourse}
+                    onClose={() => setShowDetailModal(false)}
+                    onEnroll={handleEnroll}
+                />
+            )}
 
         </div>
     );

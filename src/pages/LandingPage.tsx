@@ -38,6 +38,9 @@ export const LandingPage = () => {
     const [currentSlide, setCurrentSlide] = useState(0);
     const isLoggedIn = !!AuthService.getCurrentUser();
 
+    // Mobile responsive state
+    const [isMobile, setIsMobile] = useState(false);
+
     // 과정 상세 모달 상태
     const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
     const [showCourseModal, setShowCourseModal] = useState(false);
@@ -136,7 +139,19 @@ export const LandingPage = () => {
         const timer = setInterval(() => {
             setCurrentSlide((prev) => (prev + 1) % slides.length);
         }, 5000);
-        return () => clearInterval(timer);
+
+        // Check screen size
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+
+        handleResize(); // Initial check
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
 
@@ -163,35 +178,120 @@ export const LandingPage = () => {
                 right: 0,
                 zIndex: 100,
                 borderBottom: '1px solid #e2e8f0',
-                padding: '0.8rem 0'
+                padding: isMobile ? '0.75rem 0' : '0.8rem 0'
             }}>
-                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1rem', maxWidth: '1200px', margin: '0 auto' }}>
+                <div className="container" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: isMobile ? '0 0.75rem' : '0 1rem',
+                    maxWidth: '1200px',
+                    margin: '0 auto'
+                }}>
+                    {/* Logo */}
                     <div
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: isMobile ? '0.5rem' : '0.75rem'
+                        }}
                         onClick={() => navigate('/')}
                     >
-                        <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: '32px' }} />
-                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', letterSpacing: '-0.5px' }}>WOW3D-CBT</span>
+                        <img src="/images/wow_logo.png" alt="WOW3D-CBT" style={{ height: isMobile ? '28px' : '32px' }} />
+                        {!isMobile && (
+                            <span style={{
+                                fontSize: '1.25rem',
+                                fontWeight: 800,
+                                color: '#334155',
+                                letterSpacing: '-0.5px'
+                            }}>WOW3D-CBT</span>
+                        )}
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <button
-                            onClick={() => setShowSupportModal(true)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                background: 'transparent', border: 'none',
-                                color: '#475569', fontWeight: 600, cursor: 'pointer',
-                                fontSize: '0.95rem'
-                            }}
-                        >
-                            <MessageCircle size={18} /> 1:1 문의
-                        </button>
-                        <div style={{ width: '1px', height: '16px', background: '#cbd5e1' }} />
+
+                    {/* Navigation */}
+                    <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.75rem', alignItems: 'center' }}>
+                        {/* 1:1 문의 버튼 */}
+                        {!isMobile && (
+                            <button
+                                onClick={() => setShowSupportModal(true)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#475569',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    padding: '0.5rem 0.75rem'
+                                }}
+                            >
+                                <MessageCircle size={18} /> 1:1 문의
+                            </button>
+                        )}
+
+                        {/* Mobile: 아이콘만 */}
+                        {isMobile && (
+                            <button
+                                onClick={() => setShowSupportModal(true)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#475569',
+                                    cursor: 'pointer',
+                                    padding: '0.5rem',
+                                    borderRadius: '0.5rem'
+                                }}
+                            >
+                                <MessageCircle size={20} />
+                            </button>
+                        )}
+
+                        {/* Logged in: Dashboard button */}
                         {isLoggedIn ? (
-                            <button onClick={() => navigate('/student/dashboard')} className="btn btn-primary">대시보드 가기</button>
+                            <button
+                                onClick={() => navigate('/student/dashboard')}
+                                className="btn btn-primary"
+                                style={{
+                                    fontSize: isMobile ? '0.85rem' : '0.95rem',
+                                    padding: isMobile ? '0.5rem 1rem' : '0.625rem 1.25rem'
+                                }}
+                            >
+                                {isMobile ? '대시보드' : '대시보드 가기'}
+                            </button>
                         ) : (
+                            /* Not logged in: Login + Register */
                             <>
-                                <button onClick={() => navigate('/login')} style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}>로그인</button>
-                                <button onClick={() => navigate('/register')} className="btn btn-primary" style={{ padding: '0.5rem 1.2rem' }}>회원가입</button>
+                                <button
+                                    onClick={() => navigate('/login')}
+                                    style={{
+                                        padding: isMobile ? '0.5rem 0.875rem' : '0.5rem 1rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#64748b',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        fontSize: isMobile ? '0.85rem' : '0.95rem',
+                                        borderRadius: '0.5rem'
+                                    }}
+                                >
+                                    로그인
+                                </button>
+                                <button
+                                    onClick={() => navigate('/register')}
+                                    className="btn btn-primary"
+                                    style={{
+                                        padding: isMobile ? '0.5rem 1rem' : '0.5rem 1.2rem',
+                                        fontSize: isMobile ? '0.85rem' : '0.95rem'
+                                    }}
+                                >
+                                    회원가입
+                                </button>
                             </>
                         )}
                     </div>
@@ -417,7 +517,7 @@ export const LandingPage = () => {
                                         flexDirection: 'column',
                                         alignItems: 'flex-start',
                                         justifyContent: 'space-between',
-                                        height: '320px',
+                                        minHeight: '280px',
                                         cursor: 'pointer',
                                         transition: 'all 0.3s ease',
                                         position: 'relative',
@@ -445,42 +545,44 @@ export const LandingPage = () => {
                                         zIndex: 0
                                     }} />
 
-                                    <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+                                    <div style={{ position: 'relative', zIndex: 1, width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                         <div style={{
-                                            width: '60px',
-                                            height: '60px',
-                                            borderRadius: '1rem',
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '1.125rem',
                                             background: `linear-gradient(135deg, ${color1}, ${color1}dd)`,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            marginBottom: '1.5rem',
+                                            marginBottom: '1.75rem',
                                             boxShadow: `0 8px 16px -4px ${color1}66`,
                                             color: 'white'
                                         }}>
-                                            <Icon size={28} strokeWidth={1.5} />
+                                            <Icon size={30} strokeWidth={1.5} />
                                         </div>
 
                                         <h3 style={{
-                                            fontSize: '1.4rem',
-                                            fontWeight: 800,
+                                            fontSize: '1.3rem',
+                                            fontWeight: 700,
                                             color: '#1e293b',
-                                            marginBottom: '0.75rem',
-                                            lineHeight: 1.3
+                                            marginBottom: '1rem',
+                                            lineHeight: 1.5,
+                                            wordBreak: 'keep-all',
+                                            letterSpacing: '-0.02em'
                                         }}>
                                             {course.name}
                                         </h3>
 
                                         <div style={{
-                                            height: '4px',
-                                            width: '40px',
-                                            background: '#e2e8f0',
+                                            height: '3px',
+                                            width: '50px',
+                                            background: `linear-gradient(90deg, ${color1}, transparent)`,
                                             borderRadius: '2px'
                                         }} />
                                     </div>
 
                                     <div style={{
-                                        marginTop: 'auto',
+                                        marginTop: '1.5rem',
                                         position: 'relative',
                                         zIndex: 1,
                                         display: 'flex',
@@ -488,8 +590,19 @@ export const LandingPage = () => {
                                         gap: '0.5rem',
                                         color: color1,
                                         fontWeight: 600,
-                                        fontSize: '0.95rem'
-                                    }}>
+                                        fontSize: '0.95rem',
+                                        padding: '0.75rem 1.25rem',
+                                        borderRadius: '0.75rem',
+                                        background: `${color1}08`,
+                                        transition: 'all 0.2s'
+                                    }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = `${color1}15`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = `${color1}08`;
+                                        }}
+                                    >
                                         <span>과정 보기</span>
                                         <ChevronRight size={16} />
                                     </div>
@@ -713,9 +826,10 @@ export const LandingPage = () => {
                                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
                                     <FileText size={18} color={color1} /> 과정 소개
                                 </h3>
-                                <p style={{ color: '#475569', lineHeight: 1.7, background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem' }}>
-                                    {detail.description}
-                                </p>
+                                <div
+                                    style={{ color: '#475569', lineHeight: 1.7, background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', overflowX: 'auto' }}
+                                    dangerouslySetInnerHTML={{ __html: detail.description }}
+                                />
                             </div>
 
                             {/* 대상 */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FileText, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, FileText, Clock, AlertCircle, X, Search } from 'lucide-react';
 import { MainLayout } from '../../layouts/MainLayout';
 import { ExamService } from '../../services/examService';
 import { AuthService } from '../../services/authService';
@@ -10,9 +10,16 @@ export const ExamSelectPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [exams, setExams] = useState<Exam[]>([]);
+    const [filteredExams, setFilteredExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
+
+    // Filter states
+    const [selectedSubject, setSelectedSubject] = useState<string>('all');
+    const [selectedTopic, setSelectedTopic] = useState<string>('all');
+    const [selectedRound, setSelectedRound] = useState<string>('all');
+    const [searchText, setSearchText] = useState<string>('');
 
     // URL에서 과정명 가져오기
     const courseFilter = searchParams.get('course');
@@ -32,23 +39,23 @@ export const ExamSelectPage = () => {
         }
     }, [courseFilter, user]);
 
+    // Apply filters whenever filter values change
+    useEffect(() => {
+        applyFilters();
+    }, [exams, selectedSubject, selectedTopic, selectedRound, searchText]);
+
     const loadExams = async () => {
         try {
             setLoading(true);
             setError(null);
 
-            console.log('🔍 Loading exams...');
-
-            // Fetch all exams
             const allExams = await ExamService.getExamList();
-            console.log('📚 All exams fetched:', allExams.length);
 
             if (!user) {
                 setExams([]);
                 return;
             }
 
-            // Get active enrollments (both ID and Name)
             const activeEnrollments = (user.courseEnrollments || [])
                 .filter(enrollment => {
                     if (enrollment.status === 'expired') return false;
@@ -59,36 +66,25 @@ export const ExamSelectPage = () => {
             const activeNames = activeEnrollments.map(e => e.courseName);
             const activeIds = activeEnrollments.map(e => e.courseId);
 
-            console.log('✅ Active Enrollment Names:', activeNames);
-            console.log('✅ Active Enrollment IDs:', activeIds);
-
-            // Filter exams by active courses (Check if exam course matches Name OR ID)
-            let filteredExams = allExams.filter(exam => {
+            let filteredByEnrollment = allExams.filter(exam => {
                 const examCourse = (exam.courseName || '').trim();
                 const matchesName = activeNames.includes(examCourse);
                 const matchesId = activeIds.includes(examCourse);
                 return matchesName || matchesId;
             });
 
-            console.log('🎯 Filtered by active enrollment:', filteredExams.length);
-
-            // Apply specific course filter if present
             if (courseFilter) {
                 const targetCourseName = courseFilter.trim();
-
-                // Find ID for this course name
                 const targetEnrollment = activeEnrollments.find(e => e.courseName === targetCourseName);
                 const targetCourseId = targetEnrollment?.courseId;
 
-                filteredExams = filteredExams.filter(exam => {
+                filteredByEnrollment = filteredByEnrollment.filter(exam => {
                     const examCourse = (exam.courseName || '').trim();
                     return examCourse === targetCourseName || (targetCourseId && examCourse === targetCourseId);
                 });
-
-                console.log(`🔎 Filtered by specific course "${targetCourseName}" (ID: ${targetCourseId}):`, filteredExams.length);
             }
 
-            setExams(filteredExams);
+            setExams(filteredByEnrollment);
         } catch (err) {
             console.error('❌ Error loading exams:', err);
             setError('시험 목록을 불러오는데 실패했습니다.');
@@ -96,6 +92,52 @@ export const ExamSelectPage = () => {
             setLoading(false);
         }
     };
+
+    const applyFilters = () => {
+        let result = [...exams];
+
+        // Subject filter (중분류)
+        if (selectedSubject !== 'all') {
+            result = result.filter(exam => exam.subjectName === selectedSubject);
+        }
+
+        // Topic filter (소분류 - title)
+        if (selectedTopic !== 'all') {
+            result = result.filter(exam => exam.title === selectedTopic);
+        }
+
+        // Round filter (차시)
+        if (selectedRound !== 'all') {
+            result = result.filter(exam => exam.round === selectedRound);
+        }
+
+        // Search filter
+        if (searchText.trim()) {
+            const search = searchText.toLowerCase();
+            result = result.filter(exam =>
+                exam.title?.toLowerCase().includes(search) ||
+                exam.subjectName?.toLowerCase().includes(search) ||
+                exam.round?.toLowerCase().includes(search)
+            );
+        }
+
+        setFilteredExams(result);
+    };
+
+    const resetFilters = () => {
+        setSelectedSubject('all');
+        setSelectedTopic('all');
+        setSelectedRound('all');
+        setSearchText('');
+    };
+
+    // Get unique values for filters
+    const subjects = ['all', ...Array.from(new Set(exams.map(e => e.subjectName).filter(Boolean)))];
+    const topics = ['all', ...Array.from(new Set(exams.map(e => e.title).filter(Boolean)))];
+    const rounds = ['all', ...Array.from(new Set(exams.map(e => e.round).filter(Boolean)))];
+
+    const hasActiveFilters = selectedSubject !== 'all' || selectedTopic !== 'all' || selectedRound !== 'all' || searchText.trim();
+    const displayExams = hasActiveFilters || exams.length > 0 ? filteredExams : exams;
 
     return (
         <MainLayout>
@@ -109,7 +151,135 @@ export const ExamSelectPage = () => {
                             {courseFilter ? `${courseFilter} - ` : ''}실전 모의고사 선택
                         </h1>
                     </div>
-                    {/* ⭐️ 현재 필터 표시 */}
+
+                    {/* Filter Toggle & Search Bar */}
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                        {/* Search Bar */}
+                        <div style={{ flex: '1 1 300px', position: 'relative' }}>
+                            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
+                            <input
+                                type="text"
+                                placeholder="시험 검색..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem 0.75rem 2.75rem',
+                                    borderRadius: '0.75rem',
+                                    border: '1px solid var(--slate-200)',
+                                    fontSize: '0.95rem'
+                                }}
+                            />
+                        </div>
+
+
+                        {/* Reset Button */}
+                        {hasActiveFilters && (
+                            <button
+                                onClick={resetFilters}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.75rem 1.25rem',
+                                    borderRadius: '0.75rem',
+                                    border: 'none',
+                                    background: 'var(--slate-100)',
+                                    color: 'var(--slate-600)',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <X size={16} />
+                                초기화
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter Panel - Always Visible */}
+                    <div style={{
+                        padding: '1.5rem',
+                        background: 'white',
+                        borderRadius: '1rem',
+                        border: '1px solid var(--slate-200)',
+                        marginBottom: '1rem'
+                    }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                            {/* Subject Filter */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '0.5rem' }}>
+                                    중분류 (과목)
+                                </label>
+                                <select
+                                    value={selectedSubject}
+                                    onChange={(e) => setSelectedSubject(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: '1px solid var(--slate-200)',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="all">전체</option>
+                                    {subjects.filter(s => s !== 'all').map(subject => (
+                                        <option key={subject} value={subject}>{subject}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Topic Filter */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '0.5rem' }}>
+                                    소분류 (주제)
+                                </label>
+                                <select
+                                    value={selectedTopic}
+                                    onChange={(e) => setSelectedTopic(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: '1px solid var(--slate-200)',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="all">전체</option>
+                                    {topics.filter(t => t !== 'all').map(topic => (
+                                        <option key={topic} value={topic}>{topic}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Round Filter */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '0.5rem' }}>
+                                    차시 (회차)
+                                </label>
+                                <select
+                                    value={selectedRound}
+                                    onChange={(e) => setSelectedRound(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: '1px solid var(--slate-200)',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="all">전체</option>
+                                    {rounds.filter(r => r !== 'all').map(round => (
+                                        <option key={round} value={round}>{round}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Current Filter Info */}
                     {courseFilter && (
                         <div style={{
                             display: 'flex',
@@ -156,45 +326,90 @@ export const ExamSelectPage = () => {
                             다시 시도
                         </button>
                     </div>
-                ) : exams.length === 0 ? (
+                ) : displayExams.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--slate-500)' }}>
                         <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-                        <p>현재 수강 중인 과정에 등록된 시험이 없습니다.</p>
-                        {courseFilter && (
-                            <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                                "{courseFilter}" 과정에 시험이 등록되지 않았습니다.
-                            </p>
+                        <p>{hasActiveFilters ? '검색 조건에 맞는 시험이 없습니다.' : '현재 수강 중인 과정에 등록된 시험이 없습니다.'}</p>
+                        {hasActiveFilters && (
+                            <button
+                                onClick={resetFilters}
+                                className="btn btn-secondary"
+                                style={{ marginTop: '1rem' }}
+                            >
+                                필터 초기화
+                            </button>
                         )}
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        {exams.map((exam) => (
-                            <div key={exam.id} className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-100)', color: 'var(--primary-600)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem'
-                                }}>
-                                    <FileText size={24} />
-                                </div>
+                    <>
+                        {/* Results Count */}
+                        <div style={{ marginBottom: '1rem', color: 'var(--slate-600)', fontSize: '0.95rem', fontWeight: 500 }}>
+                            총 {displayExams.length}개의 시험
+                        </div>
 
-                                <div>
-                                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem', lineHeight: 1.3 }}>{exam.title}</h3>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', gap: '1rem' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={14} /> {exam.timeLimit}분</span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><AlertCircle size={14} /> {exam.questions?.length || exam.questionsCount || 0}문항</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                            {displayExams.map((exam) => (
+                                <div key={exam.id} className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{
+                                        width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-100)', color: 'var(--primary-600)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem'
+                                    }}>
+                                        <FileText size={24} />
                                     </div>
-                                </div>
 
-                                <button
-                                    onClick={() => navigate(`/exam/${exam.id}`)}
-                                    className="btn btn-primary"
-                                    style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}
-                                >
-                                    시험 응시하기
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                                    <div>
+                                        {/* 중분류 (과목) */}
+                                        {exam.subjectName && (
+                                            <div style={{
+                                                fontSize: '0.75rem',
+                                                color: 'var(--primary-600)',
+                                                fontWeight: 600,
+                                                marginBottom: '0.25rem',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.025em'
+                                            }}>
+                                                {exam.subjectName}
+                                            </div>
+                                        )}
+
+                                        {/* 소분류 (시험지 제목) */}
+                                        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.25rem', lineHeight: 1.3 }}>
+                                            {exam.title}
+                                        </h3>
+
+                                        {/* 차시 (회차) */}
+                                        {exam.round && (
+                                            <div style={{
+                                                fontSize: '0.85rem',
+                                                color: 'var(--slate-600)',
+                                                fontWeight: 500,
+                                                marginBottom: '0.5rem'
+                                            }}>
+                                                {exam.round}
+                                            </div>
+                                        )}
+
+                                        <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', gap: '1rem' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                <Clock size={14} /> {exam.timeLimit > 0 ? `${exam.timeLimit}분` : '제한없음'}
+                                            </span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                <AlertCircle size={14} /> {exam.questions?.length || exam.questionsCount || 0}문항
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => navigate(`/exam/${exam.id}`)}
+                                        className="btn btn-primary"
+                                        style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}
+                                    >
+                                        시험 응시하기
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </>
                 )}
             </div>
         </MainLayout>

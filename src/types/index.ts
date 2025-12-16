@@ -12,6 +12,11 @@ export interface Exam {
     id: string;
     title: string;
     courseName?: string;
+    courseId?: string;
+    subjectName?: string;
+    subjectId?: string;
+    topic?: string; // 소분류 (챕터, 주제 등)
+    round?: string; // 차시
     description?: string;
     timeLimit: number; // in minutes
     passScore?: number;

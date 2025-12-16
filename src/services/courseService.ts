@@ -13,15 +13,17 @@ export const CourseService = {
         }
     },
 
-    addCourse: async (name: string, details?: any): Promise<void> => {
+    addCourse: async (name: string, details?: any): Promise<{ success: boolean; courseId?: string; message?: string }> => {
         try {
-            await fetch('/api/courses', {
+            const response = await fetch('/api/courses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, details })
             });
+            return await response.json();
         } catch (error) {
             console.error('addCourse error:', error);
+            return { success: false, message: '과정 생성 중 오류가 발생했습니다.' };
         }
     },
 

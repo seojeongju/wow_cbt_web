@@ -5,7 +5,7 @@ export const ExamService = {
     // --------------------------------------------------------------------------
     // Exam Management
     // --------------------------------------------------------------------------
-    createExam: async (data: { title: string; courseName: string; timeLimit: number }): Promise<{ success: boolean; examId?: string; message?: string }> => {
+    createExam: async (data: { title: string; courseName: string; timeLimit: number; subjectId?: string; topic?: string; round?: string }): Promise<{ success: boolean; examId?: string; message?: string }> => {
         try {
             const response = await fetch('/api/exams', {
                 method: 'POST',
@@ -14,6 +14,9 @@ export const ExamService = {
                     title: data.title,
                     courseId: data.courseName,
                     timeLimit: data.timeLimit,
+                    subjectId: data.subjectId,
+                    topic: data.topic,
+                    round: data.round,
                     description: '',
                     passScore: 60
                 })
@@ -34,6 +37,11 @@ export const ExamService = {
                     id: e.id,
                     title: e.title,
                     courseName: e.course_name || e.course_id,
+                    courseId: e.course_id,
+                    subjectName: e.subject_name,
+                    subjectId: e.subject_id,
+                    topic: e.topic,
+                    round: e.round,
                     description: e.description,
                     timeLimit: e.time_limit,
                     passScore: e.pass_score,
@@ -76,15 +84,28 @@ export const ExamService = {
         try {
             const response = await fetch(`/api/exams/${examId}/questions`);
             const data = await response.json();
-            return (data.questions || []).map((q: any) => ({
-                id: q.id,
-                category: q.category,
-                text: q.text,
-                imageUrl: q.image_url,
-                options: q.options || [],
-                correctAnswer: q.correct_answer, // Assuming API returns consistent type (number or string)
-                explanation: q.explanation
-            }));
+            return (data.questions || []).map((q: any) => {
+                // Parse correctAnswer properly - convert string numbers to actual numbers
+                let parsedCorrectAnswer: number | string = q.correct_answer;
+
+                // If it's a string that represents a number (0-3), convert to number
+                if (typeof parsedCorrectAnswer === 'string') {
+                    const num = parseInt(parsedCorrectAnswer, 10);
+                    if (!isNaN(num) && num >= 0 && num <= 3) {
+                        parsedCorrectAnswer = num;
+                    }
+                }
+
+                return {
+                    id: q.id,
+                    category: q.category,
+                    text: q.text,
+                    imageUrl: q.image_url,
+                    options: q.options || [],
+                    correctAnswer: parsedCorrectAnswer,
+                    explanation: q.explanation
+                };
+            });
         } catch { return []; }
     },
 
@@ -193,6 +214,11 @@ export const ExamService = {
                     id: e.id,
                     title: e.title,
                     courseName: e.course_name || e.course_id,
+                    courseId: e.course_id,
+                    subjectName: e.subject_name,
+                    subjectId: e.subject_id,
+                    topic: e.topic,
+                    round: e.round,
                     description: e.description,
                     timeLimit: e.time_limit,
                     passScore: e.pass_score,
@@ -299,18 +325,36 @@ export const ExamService = {
                     id: e.id,
                     title: e.title,
                     courseName: e.course_name || e.course_id,
+                    courseId: e.course_id,
+                    subjectName: e.subject_name,
+                    subjectId: e.subject_id,
+                    topic: e.topic,
+                    round: e.round,
                     description: e.description,
                     timeLimit: e.time_limit,
                     passScore: e.pass_score,
-                    questions: (e.questions || []).map((q: any) => ({
-                        id: q.id,
-                        category: q.category,
-                        text: q.text,
-                        imageUrl: q.image_url,
-                        options: q.options || [],
-                        correctAnswer: (q.correct_answer === '0' || q.correct_answer === '1' || q.correct_answer === '2' || q.correct_answer === '3') ? Number(q.correct_answer) : q.correct_answer,
-                        explanation: q.explanation
-                    })),
+                    questions: (e.questions || []).map((q: any) => {
+                        // Parse correctAnswer properly - convert string numbers to actual numbers
+                        let parsedCorrectAnswer: number | string = q.correct_answer;
+
+                        // If it's a string that represents a number (0-3), convert to number
+                        if (typeof parsedCorrectAnswer === 'string') {
+                            const num = parseInt(parsedCorrectAnswer, 10);
+                            if (!isNaN(num) && num >= 0 && num <= 3) {
+                                parsedCorrectAnswer = num;
+                            }
+                        }
+
+                        return {
+                            id: q.id,
+                            category: q.category,
+                            text: q.text,
+                            imageUrl: q.image_url,
+                            options: q.options || [],
+                            correctAnswer: parsedCorrectAnswer,
+                            explanation: q.explanation
+                        };
+                    }),
                     questionsCount: e.questions?.length || 0
                 };
             }

@@ -18,19 +18,26 @@ export const OpenAIService = {
                             The user will provide text extracted from a PDF. It may have broken lines, mixed layouts, or weird spacing.
                             
                             Your task:
-                            1. Identify individual questions, options (1,2,3,4).
-                            2. Correct broken text and spacing.
-                            3. Identify or Infer the correct answer if marked (often bolded or checked). If not marked, try to solve it or set to -1.
-                            4. ⭐️ IMPORTANT: Generate a helpful, educational EXPLANATION for why the correct answer is right. (Write in Korean, polite tone).
+                            1. Identify individual questions and their options (1,2,3,4 or ①,②,③,④).
+                            2. Correct broken text and spacing to make questions readable.
+                            3. ⭐️ CRITICAL: Carefully identify the correct answer. Look for these indicators:
+                               - Answers marked with ✓, ●, ■, ★, or similar symbols
+                               - Text like "정답:", "Answer:", "답:", "해답:" followed by a number
+                               - Bold or underlined text in the options
+                               - Numbers in parentheses like (1), (2) near question numbers
+                               - Any explicit answer keys in the text
+                               - If the answer is clearly stated, use it. If uncertain, analyze the question and try to solve it logically.
+                               - If you absolutely cannot determine the answer, set correctAnswer to -1 (but try your best first!)
+                            4. ⭐️ Generate a helpful, educational EXPLANATION for why the correct answer is right (in Korean, polite tone).
                             
-                            Return ONLY a valid JSON array. Do not include markdown formatting.
+                            Return ONLY a valid JSON array. Do not include markdown formatting or code blocks.
                             
                             JSON Format:
                             [
                                 {
                                     "text": "Question text...",
                                     "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-                                    "correctAnswer": 0, // 0-based index
+                                    "correctAnswer": 0, // 0-based index (0,1,2,3), or -1 if unknown
                                     "explanation": "해설: ~때문에 이것이 정답입니다. (AI 생성)" 
                                 }
                             ]

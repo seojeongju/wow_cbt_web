@@ -9,9 +9,12 @@ export async function onRequestGet(context) {
             SELECT 
                 e.*,
                 COALESCE(c.name, e.course_id) as course_name,
-                COUNT(DISTINCT q.id) as question_count
+                s.name as subject_name,
+                COUNT(DISTINCT q.id) as question_count,
+                e.round
             FROM exams e
             LEFT JOIN courses c ON e.course_id = c.id
+            LEFT JOIN subjects s ON e.subject_id = s.id
             LEFT JOIN questions q ON e.id = q.exam_id
         `;
 
@@ -50,7 +53,7 @@ export async function onRequestPost(context) {
     const { request, env } = context;
 
     try {
-        const { title, courseId, description, timeLimit, passScore } = await request.json();
+        const { title, courseId, subjectId, topic, round, description, timeLimit, passScore } = await request.json();
 
         if (!title || !courseId) {
             return new Response(JSON.stringify({
@@ -65,15 +68,18 @@ export async function onRequestPost(context) {
         const examId = `exam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         await env.DB.prepare(`
-            INSERT INTO exams (id, title, course_id, description, time_limit, pass_score)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO exams (id, title, course_id, subject_id, description, time_limit, pass_score, topic, round)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
             examId,
             title,
             courseId,
+            subjectId || null,
             description || '',
             timeLimit || 60,
-            passScore || 60
+            passScore || 60,
+            topic || null,
+            round || null
         ).run();
 
         return new Response(JSON.stringify({

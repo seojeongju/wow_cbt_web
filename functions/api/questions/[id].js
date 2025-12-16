@@ -4,7 +4,10 @@ export async function onRequestPut(context) {
     const questionId = params.id;
 
     try {
-        const { category, text, options, correctAnswer, explanation, imageUrl } = await request.json();
+        const body = await request.json();
+        console.log('[PUT /api/questions/:id] Received update request:', { questionId, body });
+
+        const { category, text, options, correctAnswer, explanation, imageUrl } = body;
 
         // Check if question exists
         const { results: existing } = await env.DB.prepare(
@@ -63,7 +66,9 @@ export async function onRequestPut(context) {
         params.push(questionId);
         const query = `UPDATE questions SET ${updates.join(', ')} WHERE id = ?`;
 
-        await env.DB.prepare(query).bind(...params).run();
+        console.log('[PUT /api/questions/:id] Executing query:', { query, params });
+        const result = await env.DB.prepare(query).bind(...params).run();
+        console.log('[PUT /api/questions/:id] Update successful:', result);
 
         return new Response(JSON.stringify({
             success: true,
@@ -74,10 +79,11 @@ export async function onRequestPut(context) {
         });
 
     } catch (error) {
-        console.error('Update question error:', error);
+        console.error('[PUT /api/questions/:id] Update question error:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: '문제 수정 중 오류가 발생했습니다.'
+            message: '문제 수정 중 오류가 발생했습니다.',
+            error: error.message
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
