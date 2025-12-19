@@ -10,6 +10,8 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { UserManagement } from './pages/admin/UserManagement';
 import { QuestionManagement } from './pages/admin/QuestionManagement';
+import { MockExamGenerator } from './pages/admin/MockExamGenerator';
+import { ExamPrintPage } from './pages/admin/ExamPrintPage';
 import { AnalyticsPage } from './pages/admin/AnalyticsPage';
 import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
 import { AdminSupportPage } from './pages/admin/AdminSupportPage';
@@ -44,6 +46,8 @@ function App() {
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/questions" element={<QuestionManagement />} />
+            <Route path="/admin/exam/:examId/print" element={<ExamPrintPage />} />
+            <Route path="/admin/mock-exam" element={<MockExamGenerator />} />
             <Route path="/admin/analytics" element={<AnalyticsPage />} />
             <Route path="/admin/settings" element={<SystemSettingsPage />} />
             <Route path="/admin/support" element={<AdminSupportPage />} />

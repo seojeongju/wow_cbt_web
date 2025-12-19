@@ -11,7 +11,8 @@ import {
     X,
     BarChart3,
     MessageCircle,
-    Home
+    Home,
+    Sparkles
 } from 'lucide-react';
 
 export const AdminLayout = () => {
@@ -37,6 +38,12 @@ export const AdminLayout = () => {
             icon: FileText,
             label: '문제은행 관리',
             desc: '문제 등록/수정'
+        },
+        {
+            path: '/admin/mock-exam',
+            icon: Sparkles,
+            label: '모의고사 출제',
+            desc: '문제 선택하여 출제'
         },
         {
             path: '/admin/users',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Layers, Box, Cpu, ArrowRight, User, Lock, Eye, EyeOff, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +11,17 @@ export const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Find Account Modal State
     const [showFindModal, setShowFindModal] = useState(false);
@@ -71,23 +81,27 @@ export const LoginPage = () => {
     };
 
     return (
-        <div className="flex-center" style={{ minHeight: '100vh', width: '100vw', background: 'var(--slate-50)' }}>
+        <div className="flex-center" style={{ minHeight: '100vh', width: '100%', background: 'var(--slate-50)', padding: isMobile ? '1rem' : '2rem' }}>
             <div className="grid-cols-2" style={{
                 width: '100%',
                 maxWidth: '1200px',
-                height: '800px',
-                maxHeight: '90vh',
+                height: isMobile ? 'auto' : '800px',
+                minHeight: isMobile ? 'auto' : '600px',
+                maxHeight: isMobile ? 'none' : '90vh',
                 boxShadow: 'var(--shadow-2xl)',
-                borderRadius: '1.5rem',
+                borderRadius: isMobile ? '1rem' : '1.5rem',
                 overflow: 'hidden',
-                background: 'white'
+                background: 'white',
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'
             }}>
 
                 {/* Left Side - Brand Visuals */}
+                {!isMobile && (
                 <div style={{
                     background: 'linear-gradient(135deg, #020617 0%, #0f172a 100%)',
                     position: 'relative',
-                    padding: '4rem',
+                    padding: isMobile ? '2rem' : '4rem',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
@@ -108,18 +122,18 @@ export const LoginPage = () => {
                     <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
 
                         <div style={{ marginTop: 'auto', marginBottom: '2rem' }}>
-                            <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '60px', marginBottom: '2rem', filter: 'brightness(0) invert(1)' }} />
+                            <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: isMobile ? '40px' : '60px', marginBottom: isMobile ? '1rem' : '2rem', filter: 'brightness(0) invert(1)' }} />
 
-                            <h1 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.3, marginBottom: '3rem', color: 'white' }}>
+                            <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 800, lineHeight: 1.3, marginBottom: isMobile ? '1.5rem' : '3rem', color: 'white' }}>
                                 WOW3D-CBT(문제은행)<br />
                                 서비스
                             </h1>
 
                             <div style={{
                                 background: 'rgba(255,255,255,0.05)',
-                                padding: '1.5rem',
+                                padding: isMobile ? '1rem' : '1.5rem',
                                 borderRadius: '1rem',
-                                fontSize: '0.9rem',
+                                fontSize: isMobile ? '0.8rem' : '0.9rem',
                                 color: 'var(--slate-400)',
                                 lineHeight: 1.6,
                                 border: '1px solid rgba(255,255,255,0.1)',
@@ -139,18 +153,28 @@ export const LoginPage = () => {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Right Side - Login Form */}
                 <div style={{
-                    padding: '4rem',
+                    padding: isMobile ? '2rem 1.5rem' : '4rem',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    minHeight: isMobile ? 'auto' : '100%'
                 }}>
                     <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
-                        <div style={{ marginBottom: '2.5rem' }}>
-                            <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>환영합니다! 👋</h2>
-                            <p style={{ color: 'var(--text-muted)' }}>계정이 없으신가요? <span onClick={() => navigate('/register')} style={{ color: 'var(--primary-600)', fontWeight: 600, cursor: 'pointer' }}>회원가입 하기</span></p>
+                        {isMobile && (
+                            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                                <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '40px', marginBottom: '1rem' }} />
+                                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.5rem' }}>
+                                    WOW3D-CBT
+                                </h1>
+                            </div>
+                        )}
+                        <div style={{ marginBottom: isMobile ? '1.5rem' : '2.5rem' }}>
+                            <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', marginBottom: '0.5rem' }}>환영합니다! 👋</h2>
+                            <p style={{ color: 'var(--text-muted)', fontSize: isMobile ? '0.875rem' : '1rem' }}>계정이 없으신가요? <span onClick={() => navigate('/register')} style={{ color: 'var(--primary-600)', fontWeight: 600, cursor: 'pointer' }}>회원가입 하기</span></p>
                         </div>
 
                         {/* Role Switcher */}
@@ -242,10 +266,12 @@ export const LoginPage = () => {
                     zIndex: 2000, padding: '1rem'
                 }}>
                     <div style={{
-                        background: 'white', borderRadius: '1rem', padding: '2rem',
+                        background: 'white', borderRadius: '1rem', padding: isMobile ? '1.5rem' : '2rem',
                         maxWidth: '450px', width: '100%',
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                        position: 'relative'
+                        position: 'relative',
+                        maxHeight: isMobile ? '90vh' : 'auto',
+                        overflowY: isMobile ? 'auto' : 'visible'
                     }}>
                         <button
                             onClick={() => setShowFindModal(false)}

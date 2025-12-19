@@ -7,7 +7,7 @@ export async function onRequestPut(context) {
         const body = await request.json();
         console.log('[PUT /api/questions/:id] Received update request:', { questionId, body });
 
-        const { category, text, options, correctAnswer, explanation, imageUrl } = body;
+        const { category, text, options, correctAnswer, explanation, imageUrl, optionImages } = body;
 
         // Check if question exists
         const { results: existing } = await env.DB.prepare(
@@ -50,7 +50,19 @@ export async function onRequestPut(context) {
         }
         if (imageUrl !== undefined) {
             updates.push('image_url = ?');
-            params.push(imageUrl || null);
+            // null을 명시적으로 전달하여 이미지 삭제 처리
+            params.push(imageUrl === null ? null : (imageUrl || null));
+            console.log('[PUT /api/questions/:id] Image URL update:', { imageUrl, willSetTo: imageUrl === null ? null : (imageUrl || null) });
+        }
+        if (optionImages !== undefined) {
+            updates.push('option_images = ?');
+            // null 배열 처리: null이거나 빈 배열이면 null, 그 외는 JSON 문자열로 저장
+            const optionImagesStr = optionImages === null || (Array.isArray(optionImages) && optionImages.length === 0) ? null : JSON.stringify(optionImages);
+            params.push(optionImagesStr);
+            console.log('[PUT /api/questions/:id] Option Images update:', {
+                hasContent: !!optionImagesStr,
+                length: optionImagesStr ? optionImagesStr.length : 0
+            });
         }
 
         if (updates.length === 0) {

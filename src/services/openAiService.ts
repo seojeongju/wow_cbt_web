@@ -62,9 +62,23 @@ export const OpenAIService = {
             const content = data.choices[0].message.content.trim();
 
             // Remove markdown code blocks if present
-            const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Regex to extract JSON block
+            const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
 
-            return JSON.parse(cleanJson);
+            let jsonString = '';
+            if (jsonMatch && jsonMatch[1]) {
+                jsonString = jsonMatch[1].trim();
+            } else {
+                // Fallback: try to find array brackets if entire content isn't wrapped
+                const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                if (arrayMatch) {
+                    jsonString = arrayMatch[0];
+                } else {
+                    jsonString = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                }
+            }
+
+            return JSON.parse(jsonString);
 
         } catch (error) {
             console.error('OpenAI Parsing Error:', error);
@@ -159,9 +173,22 @@ ${originalQuestion.explanation ? `해설: ${originalQuestion.explanation}` : ''}
             const content = data.choices[0].message.content.trim();
 
             // Remove markdown code blocks if present
-            const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Regex to extract JSON block
+            const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
 
-            return JSON.parse(cleanJson);
+            let jsonString = '';
+            if (jsonMatch && jsonMatch[1]) {
+                jsonString = jsonMatch[1].trim();
+            } else {
+                const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                if (arrayMatch) {
+                    jsonString = arrayMatch[0];
+                } else {
+                    jsonString = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                }
+            }
+
+            return JSON.parse(jsonString);
 
         } catch (error) {
             console.error('OpenAI Generate Similar Questions Error:', error);

@@ -102,6 +102,17 @@ export const ExamService = {
                     text: q.text,
                     imageUrl: q.image_url,
                     options: q.options || [],
+                    optionImages: (() => {
+                        const raw = q.optionImages || q.option_images;
+                        if (Array.isArray(raw)) return raw;
+                        if (typeof raw === 'string') {
+                            try {
+                                const parsed = JSON.parse(raw);
+                                if (Array.isArray(parsed)) return parsed;
+                            } catch { }
+                        }
+                        return undefined;
+                    })(),
                     correctAnswer: parsedCorrectAnswer,
                     explanation: q.explanation
                 };
@@ -111,22 +122,50 @@ export const ExamService = {
 
     addQuestionToExam: async (examId: string, question: Question): Promise<void> => {
         try {
-            await fetch(`/api/exams/${examId}/questions`, {
+            const response = await fetch(`/api/exams/${examId}/questions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(question)
             });
-        } catch { }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || '문제 추가 실패');
+            }
+        } catch (error) {
+            console.error('Add question error:', error);
+            throw error;
+        }
     },
 
     updateQuestionInExam: async (_examId: string, question: Question): Promise<void> => {
         try {
-            await fetch(`/api/questions/${question.id}`, {
+            // imageUrl 처리: null이면 명시적으로 null 전달, undefined면 null로 변환, 그 외는 그대로
+            const updateData: any = {
+                ...question,
+                imageUrl: question.imageUrl === null ? null : (question.imageUrl === undefined ? null : question.imageUrl)
+            };
+
+            const response = await fetch(`/api/questions/${question.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(question)
+                body: JSON.stringify(updateData)
             });
-        } catch { }
+
+            if (!response.ok) {
+                let errorMessage = '문제 수정 실패';
+                try {
+                    const err = await response.json();
+                    errorMessage = err.error || err.message || errorMessage;
+                } catch (e) {
+                    errorMessage = await response.text() || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
+        } catch (error) {
+            console.error('Update question error:', error);
+            throw error;
+        }
     },
 
     removeQuestionFromExam: async (_examId: string, questionId: string): Promise<void> => {
@@ -351,6 +390,17 @@ export const ExamService = {
                             text: q.text,
                             imageUrl: q.image_url,
                             options: q.options || [],
+                            optionImages: (() => {
+                                const raw = q.optionImages || q.option_images;
+                                if (Array.isArray(raw)) return raw;
+                                if (typeof raw === 'string') {
+                                    try {
+                                        const parsed = JSON.parse(raw);
+                                        if (Array.isArray(parsed)) return parsed;
+                                    } catch { }
+                                }
+                                return undefined;
+                            })(),
                             correctAnswer: parsedCorrectAnswer,
                             explanation: q.explanation
                         };
@@ -360,5 +410,35 @@ export const ExamService = {
             }
         } catch { }
         return undefined;
+    },
+
+    // --------------------------------------------------------------------------
+    // Mock Exam Generation
+    // --------------------------------------------------------------------------
+    generateMockExam: async (options: {
+        title: string;
+        courseId: string;
+        subjectId?: string;
+        timeLimit: number;
+        passScore: number;
+        description?: string;
+        questionIds: string[];
+        mode: 'manual' | 'random';
+        randomOptions?: {
+            totalQuestions: number;
+            distributionType: 'random' | 'equal';
+        };
+    }): Promise<{ success: boolean; examId?: string; message?: string }> => {
+        try {
+            const response = await fetch('/api/exams/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(options)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('generateMockExam error:', error);
+            return { success: false, message: 'Server error' };
+        }
     },
 };

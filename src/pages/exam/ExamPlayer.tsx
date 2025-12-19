@@ -223,35 +223,62 @@ export const ExamPlayer = () => {
                         {/* Options or Subjective Input */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {question.options && question.options.length > 0 ? (
-                                question.options.map((option, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleAnswer(idx)}
-                                        style={{
-                                            padding: '1rem 1.25rem',
-                                            borderRadius: '0.75rem',
-                                            border: answers[question.id] === idx ? '2px solid var(--primary-600)' : '1px solid var(--slate-200)',
-                                            background: answers[question.id] === idx ? 'var(--primary-50)' : 'white',
-                                            color: answers[question.id] === idx ? 'var(--primary-800)' : 'var(--text-main)',
-                                            textAlign: 'left',
-                                            fontSize: '1.1rem',
-                                            display: 'flex', alignItems: 'center', gap: '1rem',
-                                            transition: 'all 0.1s'
-                                        }}
-                                    >
-                                        <span style={{
-                                            width: '28px', height: '28px', borderRadius: '50%',
-                                            border: `2px solid ${answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-300)'}`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '0.9rem', fontWeight: 700,
-                                            color: answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-400)',
-                                            flexShrink: 0
-                                        }}>
-                                            {idx + 1}
-                                        </span>
-                                        {option}
-                                    </button>
-                                ))
+                                question.options.map((option, idx) => {
+                                    const optionImage = question.optionImages?.[idx];
+                                    return (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleAnswer(idx)}
+                                            style={{
+                                                padding: '1rem 1.25rem',
+                                                borderRadius: '0.75rem',
+                                                border: answers[question.id] === idx ? '2px solid var(--primary-600)' : '1px solid var(--slate-200)',
+                                                background: answers[question.id] === idx ? 'var(--primary-50)' : 'white',
+                                                color: answers[question.id] === idx ? 'var(--primary-800)' : 'var(--text-main)',
+                                                textAlign: 'left',
+                                                fontSize: '1.1rem',
+                                                display: 'flex', 
+                                                flexDirection: 'column',
+                                                alignItems: 'flex-start', 
+                                                gap: '0.75rem',
+                                                transition: 'all 0.1s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                                                <span style={{
+                                                    width: '28px', height: '28px', borderRadius: '50%',
+                                                    border: `2px solid ${answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-300)'}`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '0.9rem', fontWeight: 700,
+                                                    color: answers[question.id] === idx ? 'var(--primary-600)' : 'var(--slate-400)',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {idx + 1}
+                                                </span>
+                                                <span style={{ flex: 1 }}>{option || ''}</span>
+                                            </div>
+                                            {optionImage && (
+                                                <div style={{ 
+                                                    width: '100%', 
+                                                    borderRadius: '0.5rem', 
+                                                    overflow: 'hidden', 
+                                                    border: '1px solid var(--slate-200)',
+                                                    background: '#f8f9fa'
+                                                }}>
+                                                    <img 
+                                                        src={optionImage} 
+                                                        alt={`Option ${idx + 1}`} 
+                                                        style={{ 
+                                                            width: '100%', 
+                                                            maxHeight: '300px', 
+                                                            objectFit: 'contain' 
+                                                        }} 
+                                                    />
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })
                             ) : (
                                 <div style={{ marginTop: '1rem' }}>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>주관식 정답 입력</label>

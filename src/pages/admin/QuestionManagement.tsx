@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Trash2, FileUp, Folder, FileText, LayoutGrid, BookOpen, Edit2, Image as ImageIcon, Settings, BrainCircuit, Key as KeyIcon, Sparkles, X, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, FileUp, Folder, FileText, LayoutGrid, BookOpen, Edit2, Image as ImageIcon, Settings, BrainCircuit, Key as KeyIcon, Sparkles, X, CheckCircle, Printer } from 'lucide-react';
 import { Question } from '../../types';
 import { ExamService } from '../../services/examService';
 import { CategoryService } from '../../services/categoryService';
@@ -307,7 +307,8 @@ export const QuestionManagement = () => {
     const [newQuestion, setNewQuestion] = useState<any>({
         category: '3D형상모델링',
         options: ['', '', '', ''],
-        correctAnswer: 0
+        correctAnswer: 0,
+        optionImages: []
     });
 
     // Category Management State
@@ -779,27 +780,93 @@ export const QuestionManagement = () => {
 
     const handleEditQuestion = (q: Question) => {
         setEditingId(q.id);
-        setNewQuestion({ ...q });
+
+        // ⭐️ Robust Parsing for optionImages (Handling Array, JSON String, or Double-Encoded String)
+        let safeOptionImages: (string | null)[] = [];
+        try {
+            const raw = q.optionImages;
+            if (Array.isArray(raw)) {
+                safeOptionImages = raw;
+            } else if (typeof raw === 'string') {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    safeOptionImages = parsed;
+                } else if (typeof parsed === 'string') {
+                    // Try parsing one more time for double-encoded strings
+                    const deepParsed = JSON.parse(parsed);
+                    if (Array.isArray(deepParsed)) safeOptionImages = deepParsed;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse optionImages for editing:', e);
+            safeOptionImages = [];
+        }
+
+        setNewQuestion({ ...q, optionImages: safeOptionImages });
         setIsFormOpen(true);
         // Scroll to form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Image Upload Handler
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ⭐️ Image Compression Utility
+    const compressImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1024; // Limit width to 1024px
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        reject(new Error('Canvas context not available'));
+                        return;
+                    }
+
+                    // ⭐️ Fill white background for transparent PNGs
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+
+                    ctx.drawImage(img, 0, 0, width, height);
+                    // Compress to JPEG with 0.7 quality
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    resolve(dataUrl);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    };
+
+    // Image Upload Handler (with Compression)
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setNewQuestion({ ...newQuestion, imageUrl: reader.result as string });
-            };
-            reader.readAsDataURL(file);
+            try {
+                const compressedDataUrl = await compressImage(file);
+                setNewQuestion({ ...newQuestion, imageUrl: compressedDataUrl });
+            } catch (error) {
+                console.error('Image compression failed:', error);
+                alert('이미지 처리 중 오류가 발생했습니다.');
+            }
         }
     };
 
-    // ⭐️ Paste Image Handler (Ctrl+V)
+    // ⭐️ Paste Image Handler (Ctrl+V) with Compression
     useEffect(() => {
-        const handlePaste = (e: ClipboardEvent) => {
+        const handlePaste = async (e: ClipboardEvent) => {
             if (!isFormOpen) return;
 
             const items = e.clipboardData?.items;
@@ -809,11 +876,12 @@ export const QuestionManagement = () => {
                 if (items[i].type.indexOf('image') !== -1) {
                     const blob = items[i].getAsFile();
                     if (blob) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            setNewQuestion((prev: any) => ({ ...prev, imageUrl: event.target?.result as string }));
-                        };
-                        reader.readAsDataURL(blob);
+                        try {
+                            const compressedDataUrl = await compressImage(blob);
+                            setNewQuestion((prev: any) => ({ ...prev, imageUrl: compressedDataUrl }));
+                        } catch (error) {
+                            console.error('Paste image compression failed:', error);
+                        }
                         e.preventDefault();
                         break;
                     }
@@ -824,6 +892,52 @@ export const QuestionManagement = () => {
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
     }, [isFormOpen]);
+
+    // ⭐️ String Image Compression Utility (for existing base64 strings)
+    const compressStringImage = (dataUrl: string): Promise<string> => {
+        return new Promise((resolve) => {
+            // If not a data URL or already short/compressed (heuristic), return as is
+            if (!dataUrl || !dataUrl.startsWith('data:image')) {
+                resolve(dataUrl);
+                return;
+            }
+
+            const img = new Image();
+            img.src = dataUrl;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1024;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                // ⭐️ Fill white background for transparent PNGs
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.drawImage(img, 0, 0, width, height);
+                // Force JPEG 0.7
+                const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(compressed);
+            };
+            img.onerror = () => {
+                // If loading fails, return original
+                resolve(dataUrl);
+            };
+        });
+    };
 
     const handleSave = async () => {
         if (!selectedExamId) return alert('시험지를 먼저 선택해주세요.');
@@ -838,6 +952,49 @@ export const QuestionManagement = () => {
             if (!confirm('정답이 입력되지 않았습니다. 그래도 저장하시겠습니까?')) return;
         }
 
+        // ⭐️ Auto-compress images before saving (Crucial for existing uncompressed data)
+        let processedImageUrl = newQuestion.imageUrl;
+        if (processedImageUrl && typeof processedImageUrl === 'string') {
+            try {
+                processedImageUrl = await compressStringImage(processedImageUrl);
+            } catch (e) {
+                console.error('Image compression error:', e);
+            }
+        }
+
+        let processedOptionImages: (string | null)[] = [];
+        if (newQuestion.optionImages && Array.isArray(newQuestion.optionImages)) {
+            processedOptionImages = await Promise.all(newQuestion.optionImages.map(async (img: any) => {
+                if (img && typeof img === 'string') {
+                    return await compressStringImage(img);
+                }
+                return img;
+            }));
+        }
+
+        // 이미지 삭제 처리: null, undefined, 빈 문자열 모두 null로 처리
+        let imageUrlValue: string | null | undefined;
+        if (processedImageUrl === null || processedImageUrl === '' || processedImageUrl === undefined) {
+            // 이미지가 삭제된 경우 명시적으로 null 전달
+            imageUrlValue = null;
+        } else {
+            imageUrlValue = processedImageUrl;
+        }
+
+        console.log('저장할 문제 데이터(압축됨):', {
+            id: editingId || `q_${Date.now()} `,
+            imageUrlLength: imageUrlValue?.length || 0,
+            isNull: imageUrlValue === null
+        });
+
+        // Option images 처리
+        let optionImagesValue: (string | null)[] | undefined;
+        if (processedOptionImages.length > 0) {
+            optionImagesValue = processedOptionImages.map((img: string | null | undefined) =>
+                (img === null || img === '' || img === undefined) ? null : img
+            );
+        }
+
         const q: Question = {
             id: editingId || `q_${Date.now()} `,
             text: newQuestion.text,
@@ -845,21 +1002,29 @@ export const QuestionManagement = () => {
             options: isSubjective ? [] : (newQuestion.options as string[]),
             correctAnswer: newQuestion.correctAnswer ?? (isSubjective ? -1 : 0),
             explanation: newQuestion.explanation || '해설 없음',
-            imageUrl: newQuestion.imageUrl
+            imageUrl: imageUrlValue,
+            optionImages: optionImagesValue
         };
 
-        if (editingId) {
-            await ExamService.updateQuestionInExam(selectedExamId, q);
-            alert('문제가 수정되었습니다.');
-        } else {
-            await ExamService.addQuestionToExam(selectedExamId, q);
-            alert('문제가 등록되었습니다.');
-        }
+        try {
+            if (editingId) {
+                console.log('문제 수정 시작:', q);
+                await ExamService.updateQuestionInExam(selectedExamId, q);
+                alert('문제가 수정되었습니다.');
+            } else {
+                await ExamService.addQuestionToExam(selectedExamId, q);
+                alert('문제가 등록되었습니다.');
+            }
 
-        setIsFormOpen(false);
-        setEditingId(null);
-        setNewQuestion({ category: '3D형상모델링', options: ['', '', '', ''], correctAnswer: 0 });
-        loadQuestions(selectedExamId);
+            setIsFormOpen(false);
+            setEditingId(null);
+            setNewQuestion({ category: '3D형상모델링', options: ['', '', '', ''], correctAnswer: 0, optionImages: [] });
+            // 문제 목록 다시 불러오기
+            await loadQuestions(selectedExamId);
+        } catch (error) {
+            console.error('문제 저장 오류:', error);
+            alert('문제 저장 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -874,6 +1039,84 @@ export const QuestionManagement = () => {
         const newOpts = [...(newQuestion.options || [])];
         newOpts[idx] = val;
         setNewQuestion({ ...newQuestion, options: newOpts });
+    };
+
+    // ⭐️ Debug: Monitor optionImages state
+    useEffect(() => {
+        console.log('Current newQuestion.optionImages:', newQuestion.optionImages);
+    }, [newQuestion.optionImages]);
+
+    // Option Image Upload Handler (Improved with functional update and compression)
+    const handleOptionImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            console.log(`Uploading image for Option ${idx + 1}...`);
+            try {
+                const compressedDataUrl = await compressImage(file);
+                console.log(`Compression successful for Option ${idx + 1}. Length: ${compressedDataUrl.length}`);
+
+                setNewQuestion((prev: any) => {
+                    // Ensure we are working with an array
+                    let currentImages = Array.isArray(prev.optionImages) ? [...prev.optionImages] : [];
+
+                    // Fill with nulls if shorter than idx
+                    while (currentImages.length <= idx) {
+                        currentImages.push(null);
+                    }
+
+                    currentImages[idx] = compressedDataUrl;
+
+                    console.log('Updated optionImages array:', currentImages);
+                    return { ...prev, optionImages: currentImages };
+                });
+            } catch (error) {
+                console.error('Option image compression failed:', error);
+                alert('보기 이미지 처리 중 오류가 발생했습니다.');
+            }
+        }
+        e.target.value = ''; // Reset input
+    };
+
+    // ⭐️ Handle Paste for Option Inputs
+    const handleOptionPaste = async (idx: number, e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const file = items[i].getAsFile();
+                if (file) {
+                    try {
+                        const compressedDataUrl = await compressImage(file);
+                        setNewQuestion((prev: any) => {
+                            let currentImages = Array.isArray(prev.optionImages) ? [...prev.optionImages] : [];
+                            while (currentImages.length <= idx) {
+                                currentImages.push(null);
+                            }
+                            currentImages[idx] = compressedDataUrl;
+                            return { ...prev, optionImages: currentImages };
+                        });
+                        console.log(`Pasted image to option ${idx + 1}`);
+                    } catch (error) {
+                        console.error('Paste image compression failed:', error);
+                    }
+                }
+                break;
+            }
+        }
+    };
+
+    // Option Image Delete Handler (Improved with functional update)
+    const handleOptionImageDelete = (idx: number) => {
+        console.log(`Deleting option image at index ${idx}`);
+        setNewQuestion((prev: any) => {
+            const currentImages = Array.isArray(prev.optionImages) ? [...prev.optionImages] : [];
+            // Ensure array is long enough to set null at idx
+            while (currentImages.length <= idx) {
+                currentImages.push(null);
+            }
+            currentImages[idx] = null;
+            return { ...prev, optionImages: currentImages };
+        });
     };
 
     // ⭐️ AI 유사 문제 생성 핸들러 (과정 컨텍스트 포함)
@@ -1021,18 +1264,22 @@ export const QuestionManagement = () => {
         try {
             // Dynamic import for code splitting
             const pdfjsLib = await import('pdfjs-dist');
+            const pdfVersion = pdfjsLib.version || '5.4.449';
+            console.log(`Using PDF.js version: ${pdfVersion}`);
 
             // ⭐️ Worker 설정 (버전 호환성을 위해 unpkg 사용 및 mjs 확장자 명시)
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+            if (pdfjsLib.GlobalWorkerOptions) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.mjs`;
+            }
 
             const arrayBuffer = await file.arrayBuffer();
 
             // ⭐️ 한글 및 특수문자 처리를 위한 CMap 설정 추가
             const pdf = await pdfjsLib.getDocument({
                 data: arrayBuffer,
-                cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
+                cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfVersion}/cmaps/`,
                 cMapPacked: true,
-                standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`
+                standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfVersion}/standard_fonts/`
             }).promise;
 
             // ⭐️ 1. Text & Image Extraction Phase
@@ -1463,6 +1710,14 @@ export const QuestionManagement = () => {
                                                     <FileUp size={18} />
                                                 </button>
                                                 <button
+                                                    onClick={() => navigate(`/admin/exam/${selectedExamId}/print`)}
+                                                    className="btn btn-secondary"
+                                                    title="시험지 인쇄"
+                                                    style={{ color: '#10b981', background: '#dcfce7' }}
+                                                >
+                                                    <Printer size={18} />
+                                                </button>
+                                                <button
                                                     onClick={handleDeleteExam}
                                                     className="btn btn-danger"
                                                     title="시험지 삭제"
@@ -1600,9 +1855,14 @@ export const QuestionManagement = () => {
                                                         <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                                                             💡 캡처 후 <strong>Ctrl+V</strong>로 붙여넣기 가능
                                                         </span>
-                                                        {newQuestion.imageUrl && (
+                                                        {(newQuestion.imageUrl && newQuestion.imageUrl !== null && newQuestion.imageUrl !== '') && (
                                                             <button
-                                                                onClick={() => setNewQuestion({ ...newQuestion, imageUrl: undefined })}
+                                                                onClick={() => {
+                                                                    console.log('이미지 삭제 전:', newQuestion.imageUrl);
+                                                                    setNewQuestion({ ...newQuestion, imageUrl: null });
+                                                                    console.log('이미지 삭제 후:', null);
+                                                                    alert('이미지가 삭제되었습니다. 저장 버튼을 클릭하여 변경사항을 저장하세요.');
+                                                                }}
                                                                 className="btn btn-secondary"
                                                                 style={{ color: '#ef4444', borderColor: '#ef4444' }}
                                                             >
@@ -1611,7 +1871,7 @@ export const QuestionManagement = () => {
                                                         )}
                                                     </div>
 
-                                                    {newQuestion.imageUrl && (
+                                                    {(newQuestion.imageUrl && newQuestion.imageUrl !== null && newQuestion.imageUrl !== '') && (
                                                         <div style={{ marginTop: '0.5rem', border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.5rem', width: 'fit-content' }}>
                                                             <img
                                                                 src={newQuestion.imageUrl}
@@ -1635,7 +1895,7 @@ export const QuestionManagement = () => {
                                                                 color: newQuestion.options && newQuestion.options.length > 0 ? 'var(--primary-600)' : '#64748b',
                                                                 boxShadow: newQuestion.options && newQuestion.options.length > 0 ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
                                                             }}
-                                                            onClick={() => setNewQuestion({ ...newQuestion, options: ['', '', '', ''], correctAnswer: 0 })}
+                                                            onClick={() => setNewQuestion({ ...newQuestion, options: ['', '', '', ''], correctAnswer: 0, optionImages: [] })}
                                                         >
                                                             객관식
                                                         </button>
@@ -1655,25 +1915,109 @@ export const QuestionManagement = () => {
                                                 </div>
 
                                                 {newQuestion.options && newQuestion.options.length > 0 ? (
-                                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                                                        {newQuestion.options.map((opt: string, idx: number) => (
-                                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name="correctAnswer"
-                                                                    checked={newQuestion.correctAnswer === idx}
-                                                                    onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: idx })}
-                                                                    style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
-                                                                />
-                                                                <input
-                                                                    type="text"
-                                                                    className="input-field"
-                                                                    placeholder={`보기 ${idx + 1}`}
-                                                                    value={opt}
-                                                                    onChange={e => handleOptionChange(idx, e.target.value)}
-                                                                />
-                                                            </div>
-                                                        ))}
+                                                    <div style={{ display: 'grid', gap: '1rem' }}>
+                                                        {newQuestion.options.map((opt: string, idx: number) => {
+                                                            const optionImage = newQuestion.optionImages?.[idx];
+                                                            return (
+                                                                <div key={idx} style={{
+                                                                    border: '1px solid #e2e8f0',
+                                                                    borderRadius: '0.5rem',
+                                                                    padding: '0.75rem',
+                                                                    background: '#f8fafc'
+                                                                }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                                        <input
+                                                                            type="radio"
+                                                                            name="correctAnswer"
+                                                                            checked={newQuestion.correctAnswer === idx}
+                                                                            onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: idx })}
+                                                                            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
+                                                                        />
+                                                                        <input
+                                                                            type="text"
+                                                                            className="input-field"
+                                                                            placeholder={`보기 ${idx + 1}`}
+                                                                            value={opt}
+                                                                            onChange={e => handleOptionChange(idx, e.target.value)}
+                                                                            onPaste={e => handleOptionPaste(idx, e)}
+                                                                            style={{ flex: 1 }}
+                                                                        />
+                                                                        <label style={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '0.25rem',
+                                                                            padding: '0.5rem 0.75rem',
+                                                                            background: '#6366f1',
+                                                                            color: 'white',
+                                                                            borderRadius: '0.375rem',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.875rem',
+                                                                            fontWeight: 500
+                                                                        }}>
+                                                                            <ImageIcon size={16} />
+                                                                            이미지
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="image/*"
+                                                                                onChange={(e) => handleOptionImageUpload(idx, e)}
+                                                                                style={{ display: 'none' }}
+                                                                                id={`option-image-${idx}`}
+                                                                            />
+                                                                        </label>
+                                                                        {optionImage && (
+                                                                            <button
+                                                                                onClick={() => handleOptionImageDelete(idx)}
+                                                                                type="button" // Prevent form submission
+                                                                                style={{
+                                                                                    padding: '0.5rem 0.75rem',
+                                                                                    background: '#ef4444',
+                                                                                    color: 'white',
+                                                                                    border: 'none',
+                                                                                    borderRadius: '0.375rem',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.875rem',
+                                                                                    fontWeight: 500
+                                                                                }}
+                                                                            >
+                                                                                삭제
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    {optionImage && (typeof optionImage === 'string') && (optionImage.startsWith('http') || optionImage.startsWith('data:')) && (
+                                                                        <div style={{
+                                                                            marginTop: '0.5rem',
+                                                                            border: '1px solid var(--slate-200)',
+                                                                            borderRadius: '0.5rem',
+                                                                            padding: '0.5rem',
+                                                                            background: 'white',
+                                                                            display: 'inline-block'
+                                                                        }}>
+                                                                            <img
+                                                                                src={optionImage}
+                                                                                alt={`Option ${idx + 1} Preview`}
+                                                                                style={{ maxWidth: '300px', maxHeight: '200px', objectFit: 'contain' }}
+                                                                                onError={(e) => {
+                                                                                    // Fallback if image load fails
+                                                                                    e.currentTarget.style.display = 'none';
+                                                                                    e.currentTarget.parentElement!.style.display = 'none';
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    <div style={{
+                                                                        fontSize: '0.75rem',
+                                                                        color: '#64748b',
+                                                                        marginTop: '0.25rem',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '0.25rem'
+                                                                    }}>
+                                                                        <span>💡</span>
+                                                                        <span>캡처 후 Ctrl+V로 붙여넣기 가능</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 ) : (
                                                     <div>
@@ -1780,11 +2124,19 @@ export const QuestionManagement = () => {
 
                                                                 {/* Show Options Preview */}
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-600)', marginTop: '0.5rem' }}>
-                                                                    {q.options.map((opt, i) => (
-                                                                        <div key={i} style={{ color: q.correctAnswer === i ? '#059669' : 'inherit', fontWeight: q.correctAnswer === i ? 600 : 400 }}>
-                                                                            {i + 1}. {opt}
-                                                                        </div>
-                                                                    ))}
+                                                                    {q.options.map((opt, i) => {
+                                                                        const optImg = q.optionImages?.[i];
+                                                                        return (
+                                                                            <div key={i} style={{ color: q.correctAnswer === i ? '#059669' : 'inherit', fontWeight: q.correctAnswer === i ? 600 : 400 }}>
+                                                                                {i + 1}. {opt}
+                                                                                {optImg && (
+                                                                                    <div style={{ marginTop: '4px' }}>
+                                                                                        <img src={optImg} alt={`Option ${i + 1}`} style={{ maxWidth: '100px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #e2e8f0' }} />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
 
                                                                 {q.explanation && (

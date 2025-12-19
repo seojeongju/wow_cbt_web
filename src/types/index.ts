@@ -2,8 +2,9 @@ export interface Question {
     id: string;
     category: string; // e.g., '3D형상모델링', '3D프린터설정'
     text: string;
-    imageUrl?: string; // Optional image for diagrams/drawings
+    imageUrl?: string | null; // Optional image for diagrams/drawings (null for deleted images)
     options: string[];
+    optionImages?: (string | null)[]; // Optional images for each option (null for deleted images)
     correctAnswer: number | string; // 0-3 index or string answer
     explanation: string;
 }

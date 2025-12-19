@@ -35,7 +35,8 @@ export async function onRequestGet(context) {
         // Parse JSON fields
         const parsedQuestions = questions.map(q => ({
             ...q,
-            options: q.options ? JSON.parse(q.options) : []
+            options: q.options ? JSON.parse(q.options) : [],
+            optionImages: q.option_images ? JSON.parse(q.option_images) : undefined
         }));
 
         const exam = {

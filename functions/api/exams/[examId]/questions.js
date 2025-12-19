@@ -14,6 +14,7 @@ export async function onRequestGet(context) {
         const parsedQuestions = questions.map(q => ({
             ...q,
             options: q.options ? JSON.parse(q.options) : [],
+            optionImages: q.option_images ? JSON.parse(q.option_images) : undefined,
             correctAnswer: isNaN(Number(q.correct_answer)) ? q.correct_answer : Number(q.correct_answer)
         }));
 
@@ -43,7 +44,7 @@ export async function onRequestPost(context) {
     const examId = params.examId;
 
     try {
-        const { category, text, options, correctAnswer, explanation, imageUrl } = await request.json();
+        const { category, text, options, correctAnswer, explanation, imageUrl, optionImages } = await request.json();
 
         if (!text) {
             return new Response(JSON.stringify({
@@ -59,11 +60,12 @@ export async function onRequestPost(context) {
 
         // Convert arrays/objects to JSON strings
         const optionsJson = options && options.length > 0 ? JSON.stringify(options) : null;
+        const optionImagesJson = optionImages && Array.isArray(optionImages) && optionImages.length > 0 ? JSON.stringify(optionImages) : null;
         const correctAnswerStr = correctAnswer !== undefined ? String(correctAnswer) : '';
 
         await env.DB.prepare(`
-            INSERT INTO questions (id, exam_id, category, text, options, correct_answer, explanation, image_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO questions (id, exam_id, category, text, options, correct_answer, explanation, image_url, option_images)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
             questionId,
             examId,
@@ -72,7 +74,8 @@ export async function onRequestPost(context) {
             optionsJson,
             correctAnswerStr,
             explanation || '',
-            imageUrl || null
+            imageUrl || null,
+            optionImagesJson
         ).run();
 
         return new Response(JSON.stringify({
@@ -88,7 +91,7 @@ export async function onRequestPost(context) {
         console.error('Create question error:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: '문제 추가 중 오류가 발생했습니다.'
+            message: '문제 추가 중 오류가 발생했습니다: ' + (error.message || error)
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

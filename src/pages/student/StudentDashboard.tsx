@@ -237,6 +237,7 @@ export const StudentDashboard = () => {
         recentResults: [] as ExamResult[],
         passRate: 0
     });
+    const [isMobile, setIsMobile] = useState(false);
 
     // Enrollment Modal State
     const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -248,6 +249,16 @@ export const StudentDashboard = () => {
 
     // Learning Tools Section Ref
     const learningToolsRef = useRef<HTMLDivElement>(null);
+
+    // Mobile detection
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         const initDashboard = async () => {
@@ -360,37 +371,150 @@ export const StudentDashboard = () => {
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Pretendard', sans-serif" }}>
             {/* 1. Header (Simple) */}
-            <header style={{ background: 'white', padding: '1rem 0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div onClick={() => navigate('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: '28px' }} />
-                        <span style={{ fontWeight: 800, fontSize: '1.4rem', color: '#1e293b' }}>
-                            WOW3D<span style={{ color: '#6366f1' }}>-CBT</span>
+            <header style={{ background: 'white', padding: isMobile ? '0.75rem 0' : '1rem 0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                <div className="container" style={{ 
+                    padding: isMobile ? '0 1rem' : '0 1.5rem',
+                    display: 'flex', 
+                    flexDirection: isMobile ? 'column' : 'row',
+                    justifyContent: 'space-between', 
+                    alignItems: isMobile ? 'stretch' : 'center',
+                    gap: isMobile ? '0.75rem' : '0'
+                }}>
+                    {/* Logo Section */}
+                    <div onClick={() => navigate('/')} style={{ 
+                        cursor: 'pointer', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem',
+                        flexShrink: 0
+                    }}>
+                        <img src="/images/wow_logo.png" alt="WOW3D" style={{ height: isMobile ? '24px' : '28px' }} />
+                        <span style={{ fontWeight: 800, fontSize: isMobile ? '1.1rem' : '1.4rem', color: '#1e293b' }}>
+                            {isMobile ? 'WOW3D' : 'WOW3D'}<span style={{ color: '#6366f1' }}>-CBT</span>
                         </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>{user.name}님</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.email}</div>
+                    
+                    {/* User Info & Actions */}
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: isMobile ? 'space-between' : 'flex-end',
+                        gap: isMobile ? '0.5rem' : '1rem',
+                        flexWrap: 'wrap'
+                    }}>
+                        {/* User Info - 모바일에서 숨김 또는 간소화 */}
+                        {!isMobile && (
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>{user.name}님</div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.email}</div>
+                            </div>
+                        )}
+                        
+                        {/* 모바일: 사용자 이름만 표시 */}
+                        {isMobile && (
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>
+                                {user.name}님
+                            </div>
+                        )}
+                        
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem', flexShrink: 0 }}>
+                            {!isMobile && (
+                                <>
+                                    <button
+                                        onClick={() => navigate('/')}
+                                        style={{ 
+                                            padding: '0.5rem 1rem', 
+                                            background: 'transparent', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '0.5rem', 
+                                            fontSize: '0.85rem', 
+                                            fontWeight: 600, 
+                                            color: '#475569', 
+                                            cursor: 'pointer', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '0.4rem'
+                                        }}
+                                    >
+                                        <Home size={16} /> 홈으로
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/student/support')}
+                                        style={{ 
+                                            padding: '0.5rem 1rem', 
+                                            background: 'transparent', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '0.5rem', 
+                                            fontSize: '0.85rem', 
+                                            fontWeight: 600, 
+                                            color: '#475569', 
+                                            cursor: 'pointer', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '0.4rem'
+                                        }}
+                                    >
+                                        <AlertCircle size={16} /> 1:1 문의
+                                    </button>
+                                </>
+                            )}
+                            
+                            {/* 모바일: 아이콘만 표시 */}
+                            {isMobile && (
+                                <>
+                                    <button
+                                        onClick={() => navigate('/')}
+                                        style={{ 
+                                            padding: '0.5rem', 
+                                            background: 'transparent', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '0.5rem', 
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                        title="홈으로"
+                                    >
+                                        <Home size={18} color="#475569" />
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/student/support')}
+                                        style={{ 
+                                            padding: '0.5rem', 
+                                            background: 'transparent', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '0.5rem', 
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                        title="1:1 문의"
+                                    >
+                                        <AlertCircle size={18} color="#475569" />
+                                    </button>
+                                </>
+                            )}
+                            
+                            <button
+                                onClick={() => AuthService.logout()}
+                                style={{ 
+                                    padding: isMobile ? '0.5rem 0.75rem' : '0.5rem 1rem', 
+                                    background: '#f1f5f9', 
+                                    border: 'none', 
+                                    borderRadius: '0.5rem', 
+                                    fontSize: isMobile ? '0.75rem' : '0.85rem', 
+                                    fontWeight: 600, 
+                                    color: '#475569', 
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {isMobile ? '로그아웃' : '로그아웃'}
+                            </button>
                         </div>
-                        <button
-                            onClick={() => navigate('/')}
-                            style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginRight: '0.5rem' }}
-                        >
-                            <Home size={16} /> 홈으로
-                        </button>
-                        <button
-                            onClick={() => navigate('/student/support')}
-                            style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginRight: '0.5rem' }}
-                        >
-                            <AlertCircle size={16} /> 1:1 문의
-                        </button>
-                        <button
-                            onClick={() => AuthService.logout()}
-                            style={{ padding: '0.5rem 1rem', background: '#f1f5f9', border: 'none', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}
-                        >
-                            로그아웃
-                        </button>
                     </div>
                 </div>
             </header>
