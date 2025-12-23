@@ -493,15 +493,25 @@ export const QuestionManagement = () => {
             const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
             if (cObj) {
                 const exams = await ExamService.getExamsByCourse(cObj.name);
-                // Filter by subject if selected (Use String conversion for safety)
-                const filtered = batchMoveTargetSubjectId
-                    ? exams.filter(e => String(e.subjectId) === String(batchMoveTargetSubjectId))
-                    : exams;
+                // Filter by subject matches (ID or Name)
+                let filtered = exams;
+                if (batchMoveTargetSubjectId) {
+                    const targetSub = batchMoveTargetSubjects.find((s: any) => String(s.id) === String(batchMoveTargetSubjectId));
+                    const targetSubName = targetSub ? targetSub.name : '';
+
+                    filtered = exams.filter(e => {
+                        // 1. ID Match
+                        if (e.subjectId && String(e.subjectId) === String(batchMoveTargetSubjectId)) return true;
+                        // 2. Name Match (Fallback for legacy data)
+                        if (targetSubName && e.subjectName === targetSubName) return true;
+                        return false;
+                    });
+                }
                 setBatchMoveTargetExams(filtered);
             }
         };
         loadExams();
-    }, [batchMoveTargetCourseId, batchMoveTargetSubjectId, isBatchMoveModalOpen]);
+    }, [batchMoveTargetCourseId, batchMoveTargetSubjectId, isBatchMoveModalOpen, batchMoveTargetSubjects]);
 
 
     // ⭐️ Category Management Handlers (Async)
