@@ -503,9 +503,14 @@ export const QuestionManagement = () => {
                         // 1. ID Match
                         if (e.subjectId && String(e.subjectId) === String(batchMoveTargetSubjectId)) return true;
                         // 2. Name Match (Fallback for legacy data)
-                        if (targetSubName && e.subjectName === targetSubName) return true;
+                        if (targetSubName && e.subjectName && e.subjectName.trim() === targetSubName.trim()) return true;
                         return false;
                     });
+
+                    // ⭐️ Fallback: If no exams match the filter, show ALL exams to prevent empty list
+                    if (filtered.length === 0 && exams.length > 0) {
+                        filtered = exams; // Show all
+                    }
                 }
                 setBatchMoveTargetExams(filtered);
             }
@@ -3557,7 +3562,7 @@ export const QuestionManagement = () => {
                                     {batchMoveTargetExams.length === 0 && <option disabled>표시할 시험지가 없습니다. (중분류를 변경해보세요)</option>}
                                     {batchMoveTargetExams.map((e: any) => (
                                         <option key={e.id} value={e.id}>
-                                            {e.title} {e.round ? `- ${e.round}` : ''} ({e.questionsCount || 0}문제)
+                                            {e.subjectName ? `[${e.subjectName}] ` : ''}{e.title} {e.round ? `- ${e.round}` : ''} ({e.questionsCount || 0}문제)
                                         </option>
                                     ))}
                                 </select>
