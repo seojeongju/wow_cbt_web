@@ -468,5 +468,4 @@ export const ExamService = {
             return { success: false, message: '서버 오류 발생' };
         }
     }
-},
 };
