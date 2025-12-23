@@ -477,14 +477,19 @@ export const QuestionManagement = () => {
         const loadExams = async () => {
             const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
             if (cObj) {
-                const exams = await ExamService.getExamsByCourse(cObj.name);
-                setBatchMoveTargetExams(exams);
+                // Optimization: If target course is same as currently selected course in main view, use cached exams
+                if (cObj.name === selectedCourse && exams.length > 0) {
+                    setBatchMoveTargetExams(exams);
+                } else {
+                    const fetchedExams = await ExamService.getExamsByCourse(cObj.name);
+                    setBatchMoveTargetExams(fetchedExams);
+                }
             } else {
                 setBatchMoveTargetExams([]);
             }
         };
         loadExams();
-    }, [batchMoveTargetCourseId, isBatchMoveModalOpen, fullCourses]);
+    }, [batchMoveTargetCourseId, isBatchMoveModalOpen, fullCourses, exams, selectedCourse]);
 
 
     // ⭐️ Category Management Handlers (Async)
@@ -3494,7 +3499,12 @@ export const QuestionManagement = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {/* 1. Course Selection */}
                             <div>
-                                <label className="input-label">대분류 (과정)</label>
+                                <label className="input-label">
+                                    대분류 (과정)
+                                    <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '0.5rem' }}>
+                                        (Loaded: {batchMoveTargetExams.length})
+                                    </span>
+                                </label>
                                 <select
                                     className="input-field"
                                     value={batchMoveTargetCourseId}
