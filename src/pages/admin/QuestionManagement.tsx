@@ -1805,162 +1805,159 @@ export const QuestionManagement = () => {
                                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>출제 대상 선택</h2>
                             </div>
 
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
-                                {/* Course Display (Read Only) */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                    {/* Row 1: Course & Subject */}
-                                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                                        {/* 1. Course (Read Only) */}
-                                        <div style={{ flex: 1, minWidth: '250px' }}>
-                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--slate-500)', marginBottom: '0.5rem' }}>대분류 (선택된 과정)</label>
-                                            <div style={{
-                                                padding: '0.75rem',
-                                                background: 'var(--slate-50)',
-                                                borderRadius: '0.5rem',
-                                                fontWeight: 600,
-                                                color: 'var(--slate-700)',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                border: '1px solid var(--slate-200)'
-                                            }}>
-                                                {selectedCourse}
-                                                <button
-                                                    onClick={openCourseEditModal}
-                                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)', padding: '2px' }}
-                                                    title="과정 소개 편집"
-                                                >
-                                                    <FileText size={16} />
-                                                </button>
-                                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* Row 1: All Selectors in one line */}
+                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', width: '100%' }}>
+
+                                    {/* 1. Course (Read Only) */}
+                                    <div style={{ flex: 1, minWidth: '180px' }}>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--slate-500)', marginBottom: '0.5rem' }}>대분류 (선택된 과정)</label>
+                                        <div style={{
+                                            padding: '0.75rem',
+                                            background: 'var(--slate-50)',
+                                            borderRadius: '0.5rem',
+                                            fontWeight: 600,
+                                            color: 'var(--slate-700)',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            border: '1px solid var(--slate-200)',
+                                            height: '42px' // Fixed height
+                                        }}>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedCourse}</span>
+                                            <button
+                                                onClick={openCourseEditModal}
+                                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)', padding: '2px', marginLeft: '4px' }}
+                                                title="과정 소개 편집"
+                                            >
+                                                <FileText size={16} />
+                                            </button>
                                         </div>
-
-                                        {/* 2. Subject (Dynamic) */}
-                                        {(() => {
-                                            const uniqueSubjects = Array.from(new Set(availableExams.map(e => e.subjectName || '미분류'))).sort();
-                                            return (
-                                                <div style={{ flex: 1, minWidth: '250px' }}>
-                                                    <label className="input-label">중분류 (과목)</label>
-                                                    <select
-                                                        className="input-field"
-                                                        value={mainSelectedSubjectName}
-                                                        onChange={e => {
-                                                            setMainSelectedSubjectName(e.target.value);
-                                                            setMainSelectedTitle('');
-                                                            setSelectedExamId('');
-                                                        }}
-                                                    >
-                                                        <option value="">과목을 선택하세요</option>
-                                                        {uniqueSubjects.map(sub => (
-                                                            <option key={sub} value={sub}>{sub}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            );
-                                        })()}
                                     </div>
 
-                                    {/* Row 2: Title & Round & Actions */}
-                                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                                        {/* 3. Title (Dynamic) */}
-                                        {(() => {
-                                            const filteredBySubject = availableExams.filter(e => (e.subjectName || '미분류') === mainSelectedSubjectName);
-                                            const uniqueTitles = Array.from(new Set(filteredBySubject.map(e => e.title))).sort();
-                                            return (
-                                                <div style={{ flex: 1, minWidth: '250px' }}>
-                                                    <label className="input-label">소분류 (시험지 제목)</label>
-                                                    <select
-                                                        className="input-field"
-                                                        value={mainSelectedTitle}
-                                                        onChange={e => {
-                                                            setMainSelectedTitle(e.target.value);
-                                                            setSelectedExamId('');
-                                                        }}
-                                                        disabled={!mainSelectedSubjectName}
-                                                    >
-                                                        <option value="">시험지를 선택하세요</option>
-                                                        {uniqueTitles.map(t => (
-                                                            <option key={t} value={t}>{t}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            );
-                                        })()}
+                                    {/* 2. Subject (Dynamic) */}
+                                    {(() => {
+                                        const uniqueSubjects = Array.from(new Set(availableExams.map(e => e.subjectName || '미분류'))).sort();
+                                        return (
+                                            <div style={{ flex: 1, minWidth: '180px' }}>
+                                                <label className="input-label">중분류 (과목)</label>
+                                                <select
+                                                    className="input-field"
+                                                    value={mainSelectedSubjectName}
+                                                    onChange={e => {
+                                                        setMainSelectedSubjectName(e.target.value);
+                                                        setMainSelectedTitle('');
+                                                        setSelectedExamId('');
+                                                    }}
+                                                    style={{ height: '42px' }}
+                                                >
+                                                    <option value="">과목을 선택하세요</option>
+                                                    {uniqueSubjects.map(sub => (
+                                                        <option key={sub} value={sub}>{sub}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
 
-                                        {/* 4. Round (Cha-si) & Actions */}
-                                        {(() => {
-                                            const finalCandidates = availableExams.filter(e =>
-                                                (e.subjectName || '미분류') === mainSelectedSubjectName &&
-                                                e.title === mainSelectedTitle
-                                            );
+                                    {/* 3. Title (Dynamic) */}
+                                    {(() => {
+                                        const filteredBySubject = availableExams.filter(e => (e.subjectName || '미분류') === mainSelectedSubjectName);
+                                        const uniqueTitles = Array.from(new Set(filteredBySubject.map(e => e.title))).sort();
+                                        return (
+                                            <div style={{ flex: 1, minWidth: '180px' }}>
+                                                <label className="input-label">소분류 (시험지 제목)</label>
+                                                <select
+                                                    className="input-field"
+                                                    value={mainSelectedTitle}
+                                                    onChange={e => {
+                                                        setMainSelectedTitle(e.target.value);
+                                                        setSelectedExamId('');
+                                                    }}
+                                                    disabled={!mainSelectedSubjectName}
+                                                    style={{ height: '42px' }}
+                                                >
+                                                    <option value="">시험지를 선택하세요</option>
+                                                    {uniqueTitles.map(t => (
+                                                        <option key={t} value={t}>{t}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
 
-                                            return (
-                                                <div style={{ flex: 2, minWidth: '400px', display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <label className="input-label">차시 (회차/Exam)</label>
-                                                        <select
-                                                            className="input-field"
-                                                            value={selectedExamId}
-                                                            onChange={e => setSelectedExamId(e.target.value)}
-                                                            disabled={!mainSelectedTitle}
-                                                        >
-                                                            <option value="">회차를 선택하세요</option>
-                                                            {finalCandidates.length === 0 && mainSelectedTitle && <option disabled>표시할 회차가 없습니다.</option>}
-                                                            {finalCandidates.map((ex: any) => (
-                                                                <option key={ex.id} value={ex.id}>
-                                                                    {ex.round ? ex.round : '기본 회차'}
-                                                                    {ex.questionsCount ? ` (${ex.questionsCount}문제)` : ''}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                    {/* 4. Round (Cha-si) */}
+                                    {(() => {
+                                        const finalCandidates = availableExams.filter(e =>
+                                            (e.subjectName || '미분류') === mainSelectedSubjectName &&
+                                            e.title === mainSelectedTitle
+                                        );
+                                        return (
+                                            <div style={{ flex: 1, minWidth: '180px' }}>
+                                                <label className="input-label">차시 (회차/Exam)</label>
+                                                <select
+                                                    className="input-field"
+                                                    value={selectedExamId}
+                                                    onChange={e => setSelectedExamId(e.target.value)}
+                                                    disabled={!mainSelectedTitle}
+                                                    style={{ height: '42px' }}
+                                                >
+                                                    <option value="">회차를 선택하세요</option>
+                                                    {finalCandidates.length === 0 && mainSelectedTitle && <option disabled>표시할 회차가 없습니다.</option>}
+                                                    {finalCandidates.map((ex: any) => (
+                                                        <option key={ex.id} value={ex.id}>
+                                                            {ex.round ? ex.round : '기본 회차'}
+                                                            {ex.questionsCount ? ` (${ex.questionsCount}문제)` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
 
-                                                    {/* Action Buttons */}
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        <button onClick={handleCreateExam} className="btn btn-secondary" title="새 차시 추가">
-                                                            <Plus size={18} />
-                                                        </button>
-                                                        {selectedExamId && (
-                                                            <>
-                                                                <button
-                                                                    onClick={openExamEditModal}
-                                                                    className="btn btn-secondary"
-                                                                    title="시험지 정보 수정"
-                                                                    style={{ color: 'var(--slate-600)' }}
-                                                                >
-                                                                    <Edit2 size={18} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => openMoveModal(selectedExamId)}
-                                                                    className="btn btn-secondary"
-                                                                    title="분류 이동"
-                                                                    style={{ color: 'var(--primary-600)' }}
-                                                                >
-                                                                    <FileUp size={18} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => navigate(`/admin/exam/${selectedExamId}/print`)}
-                                                                    className="btn btn-secondary"
-                                                                    title="시험지 인쇄"
-                                                                    style={{ color: '#10b981', background: '#dcfce7' }}
-                                                                >
-                                                                    <Printer size={18} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={handleDeleteExam}
-                                                                    className="btn btn-danger"
-                                                                    title="시험지 삭제"
-                                                                    style={{ background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}
-                                                                >
-                                                                    <Trash2 size={18} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
+                                {/* Row 2: Action Buttons */}
+                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px dashed var(--slate-200)' }}>
+                                    <button onClick={handleCreateExam} className="btn btn-secondary" title="새 차시 추가">
+                                        <Plus size={16} style={{ marginRight: '6px' }} /> 차시 추가
+                                    </button>
+                                    {selectedExamId && (
+                                        <>
+                                            <div style={{ width: '1px', background: 'var(--slate-300)', margin: '0 0.5rem' }}></div>
+                                            <button
+                                                onClick={openExamEditModal}
+                                                className="btn btn-secondary"
+                                                title="시험지 정보 수정"
+                                                style={{ color: 'var(--slate-600)' }}
+                                            >
+                                                <Edit2 size={16} style={{ marginRight: '6px' }} /> 정보 수정
+                                            </button>
+                                            <button
+                                                onClick={() => openMoveModal(selectedExamId)}
+                                                className="btn btn-secondary"
+                                                title="분류 이동"
+                                                style={{ color: 'var(--primary-600)' }}
+                                            >
+                                                <FileUp size={16} style={{ marginRight: '6px' }} /> 분류 이동
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/admin/exam/${selectedExamId}/print`)}
+                                                className="btn btn-secondary"
+                                                title="시험지 인쇄"
+                                                style={{ color: '#10b981', background: '#dcfce7', borderColor: '#bbf7d0' }}
+                                            >
+                                                <Printer size={16} /> 인쇄
+                                            </button>
+                                            <button
+                                                onClick={handleDeleteExam}
+                                                className="btn btn-danger"
+                                                title="시험지 삭제"
+                                                style={{ background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}
+                                            >
+                                                <Trash2 size={16} /> 삭제
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
