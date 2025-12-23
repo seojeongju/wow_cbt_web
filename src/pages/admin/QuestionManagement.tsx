@@ -3555,7 +3555,7 @@ export const QuestionManagement = () => {
 
                         <div className="modal-actions" style={{ marginTop: '2rem' }}>
                             <button onClick={() => setIsBatchMoveModalOpen(false)} className="btn btn-secondary">취소</button>
-                            <button onClick={handleBatchMoveQuestions} className="btn btn-primary" disabled={!batchMoveTargetExamId}>
+                            <button onClick={handleBatchMoveQuestions} className="btn btn-primary">
                                 이동하기
                             </button>
                         </div>
