@@ -3510,7 +3510,7 @@ export const QuestionManagement = () => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
-                                <label className="input-label">이동할 과정</label>
+                                <label className="input-label">대분류 (과정)</label>
                                 <select
                                     className="input-field"
                                     value={batchMoveTargetCourseId}
@@ -3523,13 +3523,13 @@ export const QuestionManagement = () => {
                             </div>
 
                             <div>
-                                <label className="input-label">과목 (필터)</label>
+                                <label className="input-label">중분류 (과목)</label>
                                 <select
                                     className="input-field"
                                     value={batchMoveTargetSubjectId}
                                     onChange={e => setBatchMoveTargetSubjectId(e.target.value)}
                                 >
-                                    <option value="">전체 과목</option>
+                                    <option value="">전체 과목 (중분류)</option>
                                     {batchMoveTargetSubjects.map((s: any) => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
@@ -3537,17 +3537,17 @@ export const QuestionManagement = () => {
                             </div>
 
                             <div>
-                                <label className="input-label">대상 시험지</label>
+                                <label className="input-label">시험지 선택 (소분류 / 차시)</label>
                                 <select
                                     className="input-field"
                                     value={batchMoveTargetExamId}
                                     onChange={e => setBatchMoveTargetExamId(e.target.value)}
                                 >
                                     <option value="">이동할 시험지를 선택하세요</option>
-                                    {batchMoveTargetExams.length === 0 && <option disabled>표시할 시험지가 없습니다. (과목 필터를 변경해보세요)</option>}
+                                    {batchMoveTargetExams.length === 0 && <option disabled>표시할 시험지가 없습니다. (중분류를 변경해보세요)</option>}
                                     {batchMoveTargetExams.map((e: any) => (
                                         <option key={e.id} value={e.id}>
-                                            {e.round ? `[${e.round}] ` : ''}{e.title} ({e.questionsCount || 0}문제)
+                                            {e.title} {e.round ? `- ${e.round}` : ''} ({e.questionsCount || 0}문제)
                                         </option>
                                     ))}
                                 </select>
