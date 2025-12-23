@@ -312,9 +312,11 @@ export const QuestionManagement = () => {
     const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
     const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = useState(false);
     const [batchMoveTargetCourseId, setBatchMoveTargetCourseId] = useState('');
-    const [batchMoveTargetSubjects, setBatchMoveTargetSubjects] = useState<any[]>([]);
-    const [batchMoveTargetSubjectId, setBatchMoveTargetSubjectId] = useState('');
     const [batchMoveTargetExams, setBatchMoveTargetExams] = useState<any[]>([]);
+
+    // New States for Hierarchical Selection
+    const [batchMoveSelectedSubjectName, setBatchMoveSelectedSubjectName] = useState('');
+    const [batchMoveSelectedTitle, setBatchMoveSelectedTitle] = useState('');
     const [batchMoveTargetExamId, setBatchMoveTargetExamId] = useState('');
 
 
@@ -439,16 +441,14 @@ export const QuestionManagement = () => {
         const currentCourseObj = fullCourses.find(c => c.name === selectedCourse);
         if (currentCourseObj) {
             setBatchMoveTargetCourseId(currentCourseObj.id);
-            // Load Subjects
-            SubjectService.getSubjects(currentCourseObj.id).then(subs => setBatchMoveTargetSubjects(subs));
-            setBatchMoveTargetSubjectId(''); // Show ALL exams initially
+            setBatchMoveSelectedSubjectName(''); // Reset
+            setBatchMoveSelectedTitle(''); // Reset
+            setBatchMoveTargetExamId('');
 
-            // Load Exams (Initially based on current context)
-            // But we want to allow moving to ANY exam.
-            // Let's load exams for the current course initially
+            // Note: We load ALL exams for the course and filter them in the UI
+            // This ensures data consistency based on actual exam data.
             ExamService.getExamsByCourse(currentCourseObj.name).then(exams => setBatchMoveTargetExams(exams));
         }
-        setBatchMoveTargetExamId('');
         setIsBatchMoveModalOpen(true);
     };
 
@@ -470,53 +470,21 @@ export const QuestionManagement = () => {
         }
     };
 
-    // Effect to reload subjects/exams when batch target changes
+    // Effect to reload exams when batch target course changes
     useEffect(() => {
-        if (!isBatchMoveModalOpen) return;
-
-        const loadSubjects = async () => {
-            if (batchMoveTargetCourseId) {
-                const subs = await SubjectService.getSubjects(batchMoveTargetCourseId);
-                setBatchMoveTargetSubjects(subs);
-                setBatchMoveTargetSubjectId(''); // Reset subject when course changes
-            }
-        };
-        loadSubjects();
-    }, [batchMoveTargetCourseId, isBatchMoveModalOpen]);
-
-    useEffect(() => {
-        if (!isBatchMoveModalOpen) return;
+        if (!isBatchMoveModalOpen || !batchMoveTargetCourseId) return;
 
         const loadExams = async () => {
-            // We need course NAME for getExamsByCourse... inconsistent API design :( 
-            // Let's find course name from fullCourses
             const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
             if (cObj) {
                 const exams = await ExamService.getExamsByCourse(cObj.name);
-                // Filter by subject matches (ID or Name)
-                let filtered = exams;
-                if (batchMoveTargetSubjectId) {
-                    const targetSub = batchMoveTargetSubjects.find((s: any) => String(s.id) === String(batchMoveTargetSubjectId));
-                    const targetSubName = targetSub ? targetSub.name : '';
-
-                    filtered = exams.filter(e => {
-                        // 1. ID Match
-                        if (e.subjectId && String(e.subjectId) === String(batchMoveTargetSubjectId)) return true;
-                        // 2. Name Match (Fallback for legacy data)
-                        if (targetSubName && e.subjectName && e.subjectName.trim() === targetSubName.trim()) return true;
-                        return false;
-                    });
-
-                    // ⭐️ Fallback: If no exams match the filter, show ALL exams to prevent empty list
-                    if (filtered.length === 0 && exams.length > 0) {
-                        filtered = exams; // Show all
-                    }
-                }
-                setBatchMoveTargetExams(filtered);
+                setBatchMoveTargetExams(exams);
+            } else {
+                setBatchMoveTargetExams([]);
             }
         };
         loadExams();
-    }, [batchMoveTargetCourseId, batchMoveTargetSubjectId, isBatchMoveModalOpen, batchMoveTargetSubjects]);
+    }, [batchMoveTargetCourseId, isBatchMoveModalOpen, fullCourses]);
 
 
     // ⭐️ Category Management Handlers (Async)
@@ -2187,7 +2155,7 @@ export const QuestionManagement = () => {
                                                                             <img
                                                                                 src={optionImage}
                                                                                 alt={`Option ${idx + 1} Preview`}
-                                                                                style={{ maxWidth: '300px', maxHeight: '200px', objectFit: 'contain' }}
+                                                                                style={{ maxWidth: '100px', maxHeight: '80px', objectFit: 'contain' }}
                                                                                 onError={(e) => {
                                                                                     // Fallback if image load fails
                                                                                     e.currentTarget.style.display = 'none';
@@ -3524,12 +3492,18 @@ export const QuestionManagement = () => {
                         </h3>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* 1. Course Selection */}
                             <div>
                                 <label className="input-label">대분류 (과정)</label>
                                 <select
                                     className="input-field"
                                     value={batchMoveTargetCourseId}
-                                    onChange={e => setBatchMoveTargetCourseId(e.target.value)}
+                                    onChange={e => {
+                                        setBatchMoveTargetCourseId(e.target.value);
+                                        setBatchMoveSelectedSubjectName('');
+                                        setBatchMoveSelectedTitle('');
+                                        setBatchMoveTargetExamId('');
+                                    }}
                                 >
                                     {fullCourses.map((c: any) => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -3537,36 +3511,84 @@ export const QuestionManagement = () => {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="input-label">중분류 (과목)</label>
-                                <select
-                                    className="input-field"
-                                    value={batchMoveTargetSubjectId}
-                                    onChange={e => setBatchMoveTargetSubjectId(e.target.value)}
-                                >
-                                    <option value="">전체 과목 (중분류)</option>
-                                    {batchMoveTargetSubjects.map((s: any) => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {/* Logic to extract unique subjects from loaded exams */}
+                            {(() => {
+                                const uniqueSubjects = Array.from(new Set(batchMoveTargetExams.map(e => e.subjectName || '미분류'))).sort();
 
-                            <div>
-                                <label className="input-label">시험지 선택 (소분류 / 차시)</label>
-                                <select
-                                    className="input-field"
-                                    value={batchMoveTargetExamId}
-                                    onChange={e => setBatchMoveTargetExamId(e.target.value)}
-                                >
-                                    <option value="">이동할 시험지를 선택하세요</option>
-                                    {batchMoveTargetExams.length === 0 && <option disabled>표시할 시험지가 없습니다. (중분류를 변경해보세요)</option>}
-                                    {batchMoveTargetExams.map((e: any) => (
-                                        <option key={e.id} value={e.id}>
-                                            {e.subjectName ? `[${e.subjectName}] ` : ''}{e.title} {e.round ? `- ${e.round}` : ''} ({e.questionsCount || 0}문제)
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                                return (
+                                    <div>
+                                        <label className="input-label">중분류 (과목)</label>
+                                        <select
+                                            className="input-field"
+                                            value={batchMoveSelectedSubjectName}
+                                            onChange={e => {
+                                                setBatchMoveSelectedSubjectName(e.target.value);
+                                                setBatchMoveSelectedTitle('');
+                                                setBatchMoveTargetExamId('');
+                                            }}
+                                        >
+                                            <option value="">과목을 선택하세요</option>
+                                            {uniqueSubjects.map(sub => (
+                                                <option key={sub} value={sub}>{sub}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Logic to extract unique titles based on selected subject */}
+                            {(() => {
+                                const filteredBySubject = batchMoveTargetExams.filter(e => (e.subjectName || '미분류') === batchMoveSelectedSubjectName);
+                                const uniqueTitles = Array.from(new Set(filteredBySubject.map(e => e.title))).sort();
+
+                                return (
+                                    <div>
+                                        <label className="input-label">소분류 (시험지 제목)</label>
+                                        <select
+                                            className="input-field"
+                                            value={batchMoveSelectedTitle}
+                                            onChange={e => {
+                                                setBatchMoveSelectedTitle(e.target.value);
+                                                setBatchMoveTargetExamId('');
+                                            }}
+                                            disabled={!batchMoveSelectedSubjectName}
+                                        >
+                                            <option value="">시험지를 선택하세요</option>
+                                            {uniqueTitles.map(t => (
+                                                <option key={t} value={t}>{t}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Logic to show rounds (Cha-si) based on selected title */}
+                            {(() => {
+                                const finalCandidates = batchMoveTargetExams.filter(e =>
+                                    (e.subjectName || '미분류') === batchMoveSelectedSubjectName &&
+                                    e.title === batchMoveSelectedTitle
+                                );
+
+                                return (
+                                    <div>
+                                        <label className="input-label">차시 (회차 선택)</label>
+                                        <select
+                                            className="input-field"
+                                            value={batchMoveTargetExamId}
+                                            onChange={e => setBatchMoveTargetExamId(e.target.value)}
+                                            disabled={!batchMoveSelectedTitle}
+                                        >
+                                            <option value="">회차를 선택하세요</option>
+                                            {finalCandidates.length === 0 && batchMoveSelectedTitle && <option disabled>표시할 회차가 없습니다.</option>}
+                                            {finalCandidates.map((e: any) => (
+                                                <option key={e.id} value={e.id}>
+                                                    {e.round || '회차 없음'} ({e.questionsCount || 0}문제)
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div className="modal-actions" style={{ marginTop: '2rem' }}>
