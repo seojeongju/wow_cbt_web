@@ -7,9 +7,12 @@ import { CategoryService } from '../../services/categoryService';
 import { CourseService } from '../../services/courseService';
 import { SubjectService } from '../../services/subjectService'; // Added
 import { OpenAIService } from '../../services/openAiService'; // ⭐️ 추가
+// import { AIService } from '../../services/aiService'; // ⭐️ AI 해설 생성용 (TODO: UI 추가 후 활성화)
+// import { AIExplanationButton } from '../../components/admin/AIExplanationButton'; // TODO: UI에 추가 예정
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import * as XLSX from 'xlsx';
+import DOMPurify from 'dompurify';
 
 export const QuestionManagement = () => {
     const navigate = useNavigate();
@@ -82,6 +85,9 @@ export const QuestionManagement = () => {
         round: '',
         description: ''
     });
+
+    // ⭐️ AI Explanation Generation State (TODO: UI에 추가 예정)
+    // const [generatingExplanation, setGeneratingExplanation] = useState(false);
 
     // ⭐️ Load initial data
     useEffect(() => {
@@ -305,7 +311,7 @@ export const QuestionManagement = () => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newQuestion, setNewQuestion] = useState<any>({
-        category: '3D형상모델링',
+        category: '기타',
         options: ['', '', '', ''],
         correctAnswer: 0,
         optionImages: []
@@ -379,6 +385,16 @@ export const QuestionManagement = () => {
 
         loadContextData();
     }, [selectedCourse, fullCourses]);
+
+    // ⭐️ Update newQuestion category when categories are loaded
+    useEffect(() => {
+        if (categories.length > 0 && !editingId) {
+            setNewQuestion((prev: any) => ({
+                ...prev,
+                category: categories[0]
+            }));
+        }
+    }, [categories]);
 
 
     // ⭐️ Dynamic Subject Loading for Modal
@@ -1018,7 +1034,7 @@ export const QuestionManagement = () => {
 
             setIsFormOpen(false);
             setEditingId(null);
-            setNewQuestion({ category: '3D형상모델링', options: ['', '', '', ''], correctAnswer: 0, optionImages: [] });
+            setNewQuestion({ category: categories.length > 0 ? categories[0] : '기타', options: ['', '', '', ''], correctAnswer: 0, optionImages: [] });
             // 문제 목록 다시 불러오기
             await loadQuestions(selectedExamId);
         } catch (error) {
@@ -1034,6 +1050,46 @@ export const QuestionManagement = () => {
             loadQuestions(selectedExamId);
         }
     };
+
+    // ⭐️ AI 해설 자동 생성 (TODO: UI 버튼 추가 후 활성화)
+    /*
+    const handleGenerateExplanation = async () => {
+        // 문제 텍스트와 선택지, 정답이 모두 입력되었는지 확인
+        if (!newQuestion.text.trim()) {
+            alert('문제 내용을 먼저 입력해주세요.');
+            return;
+        }
+
+        if (!newQuestion.options || newQuestion.options.length < 2) {
+            alert('최소 2개 이상의 선택지를 입력해주세요.');
+            return;
+        }
+
+        if (newQuestion.correctAnswer === undefined || newQuestion.correctAnswer === null || newQuestion.correctAnswer === '') {
+            alert('정답을 먼저 선택해주세요.');
+            return;
+        }
+
+        setGeneratingExplanation(true);
+        try {
+            const explanation = await AIService.generateExplanation({
+                text: newQuestion.text,
+                options: newQuestion.options,
+                correctAnswer: typeof newQuestion.correctAnswer === 'string'
+                    ? parseInt(newQuestion.correctAnswer)
+                    : newQuestion.correctAnswer
+            });
+
+            setNewQuestion({ ...newQuestion, explanation });
+            alert('AI 해설이 생성되었습니다!');
+        } catch (error: any) {
+            console.error('AI 해설 생성 오류:', error);
+            alert(`AI 해설 생성 중 오류가 발생했습니다:\n${error.message || '알 수 없는 오류'}`);
+        } finally {
+            setGeneratingExplanation(false);
+        }
+    };
+    */
 
     const handleOptionChange = (idx: number, val: string) => {
         const newOpts = [...(newQuestion.options || [])];
@@ -1779,7 +1835,7 @@ export const QuestionManagement = () => {
                                             onClick={() => {
                                                 setIsFormOpen(true);
                                                 setEditingId(null);
-                                                setNewQuestion({ category: '3D형상모델링', options: ['', '', '', ''], correctAnswer: 0 });
+                                                setNewQuestion({ category: categories.length > 0 ? categories[0] : '기타', options: ['', '', '', ''], correctAnswer: 0 });
                                             }}
                                             className="btn btn-primary"
                                         >
@@ -2036,13 +2092,51 @@ export const QuestionManagement = () => {
                                                 )}
                                             </div>
                                             <div>
-                                                <label className="input-label">해설</label>
-                                                <textarea
-                                                    className="input-field"
-                                                    rows={2}
-                                                    value={newQuestion.explanation || ''}
-                                                    onChange={e => setNewQuestion({ ...newQuestion, explanation: e.target.value })}
-                                                />
+                                                <label className="input-label">해설 (이미지 삽입 가능)</label>
+                                                <div style={{ height: '250px', marginBottom: '1rem' }}>
+                                                    <ReactQuill
+                                                        theme="snow"
+                                                        value={newQuestion.explanation || ''}
+                                                        onChange={(content) => setNewQuestion({ ...newQuestion, explanation: content })}
+                                                        style={{ height: '200px' }}
+                                                        modules={{
+                                                            toolbar: {
+                                                                container: [
+                                                                    [{ 'header': [1, 2, false] }],
+                                                                    ['bold', 'italic', 'underline', 'strike'],
+                                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                                                    ['link', 'image'],
+                                                                    ['clean']
+                                                                ],
+                                                                handlers: {
+                                                                    image: function (this: any) {
+                                                                        const quill = this.quill;
+                                                                        const input = document.createElement('input');
+                                                                        input.setAttribute('type', 'file');
+                                                                        input.setAttribute('accept', 'image/*');
+                                                                        input.click();
+
+                                                                        input.onchange = async () => {
+                                                                            const file = input.files?.[0];
+                                                                            if (file) {
+                                                                                try {
+                                                                                    const compressedDataUrl = await compressImage(file);
+                                                                                    const range = quill.getSelection(true);
+                                                                                    quill.insertEmbed(range.index, 'image', compressedDataUrl);
+                                                                                    quill.setSelection(range.index + 1);
+                                                                                } catch (error) {
+                                                                                    console.error('Image upload failed:', error);
+                                                                                    alert('이미지 업로드 중 오류가 발생했습니다.');
+                                                                                }
+                                                                            }
+                                                                        };
+                                                                    }
+                                                                }
+                                                            }
+                                                        }}
+                                                        placeholder="해설을 입력하세요. 이미지도 삽입할 수 있습니다."
+                                                    />
+                                                </div>
                                             </div>
 
                                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
@@ -2053,7 +2147,7 @@ export const QuestionManagement = () => {
                                                     onClick={() => {
                                                         setIsFormOpen(false);
                                                         setEditingId(null);
-                                                        setNewQuestion({ category: '3D형상모델링', options: ['', '', '', ''], correctAnswer: 0 });
+                                                        setNewQuestion({ category: categories.length > 0 ? categories[0] : '기타', options: ['', '', '', ''], correctAnswer: 0 });
                                                     }}
                                                     className="btn btn-secondary"
                                                     style={{ flex: 1 }}
@@ -2087,7 +2181,17 @@ export const QuestionManagement = () => {
                                                 return currentQuestions.map((q, idx) => {
                                                     const displayIndex = indexOfFirstItem + idx;
                                                     return (
-                                                        <div key={q.id} className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', gap: '1rem', borderLeft: '4px solid var(--primary-500)' }}>
+                                                        <div key={q.id} className="glass-card" style={{
+                                                            padding: '1.5rem',
+                                                            background: 'white',
+                                                            display: 'flex',
+                                                            gap: '1rem',
+                                                            borderLeft: '4px solid var(--primary-500)',
+                                                            width: '100%',
+                                                            maxWidth: '100%',
+                                                            boxSizing: 'border-box',
+                                                            overflow: 'visible'
+                                                        }}>
                                                             {/* ⭐️ Number Badge */}
                                                             <div style={{
                                                                 display: 'flex',
@@ -2108,13 +2212,31 @@ export const QuestionManagement = () => {
                                                                 </span>
                                                             </div>
 
-                                                            <div style={{ flex: 1 }}>
+                                                            <div style={{
+                                                                flex: 1,
+                                                                minWidth: 0,
+                                                                width: '100%',
+                                                                maxWidth: '100%',
+                                                                boxSizing: 'border-box',
+                                                                overflow: 'visible'
+                                                            }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                                                                     <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'var(--slate-100)', color: 'var(--slate-600)' }}>
                                                                         {q.category === 'AI_Extracted' ? 'AI 추출' : (q.category === 'PDF_Imported' ? 'PDF 추출' : q.category)}
                                                                     </span>
                                                                 </div>
-                                                                <h4 style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '1.05rem', whiteSpace: 'pre-wrap' }}>{q.text}</h4>
+                                                                <h4 style={{
+                                                                    fontWeight: 600,
+                                                                    marginBottom: '0.5rem',
+                                                                    fontSize: '1.05rem',
+                                                                    whiteSpace: 'pre-wrap',
+                                                                    wordWrap: 'break-word',
+                                                                    wordBreak: 'break-word',
+                                                                    overflowWrap: 'break-word',
+                                                                    width: '100%',
+                                                                    maxWidth: '100%',
+                                                                    boxSizing: 'border-box'
+                                                                }}>{q.text}</h4>
 
                                                                 {q.imageUrl && (
                                                                     <div style={{ marginBottom: '1rem' }}>
@@ -2123,11 +2245,32 @@ export const QuestionManagement = () => {
                                                                 )}
 
                                                                 {/* Show Options Preview */}
-                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-600)', marginTop: '0.5rem' }}>
+                                                                <div style={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns: '1fr 1fr',
+                                                                    gap: '0.5rem',
+                                                                    fontSize: '0.9rem',
+                                                                    color: 'var(--slate-600)',
+                                                                    marginTop: '0.5rem',
+                                                                    width: '100%',
+                                                                    maxWidth: '100%',
+                                                                    boxSizing: 'border-box'
+                                                                }}>
                                                                     {q.options.map((opt, i) => {
                                                                         const optImg = q.optionImages?.[i];
                                                                         return (
-                                                                            <div key={i} style={{ color: q.correctAnswer === i ? '#059669' : 'inherit', fontWeight: q.correctAnswer === i ? 600 : 400 }}>
+                                                                            <div key={i} style={{
+                                                                                color: q.correctAnswer === i ? '#059669' : 'inherit',
+                                                                                fontWeight: q.correctAnswer === i ? 600 : 400,
+                                                                                wordWrap: 'break-word',
+                                                                                wordBreak: 'break-word',
+                                                                                overflowWrap: 'break-word',
+                                                                                whiteSpace: 'pre-wrap',
+                                                                                minWidth: 0,
+                                                                                width: '100%',
+                                                                                maxWidth: '100%',
+                                                                                boxSizing: 'border-box'
+                                                                            }}>
                                                                                 {i + 1}. {opt}
                                                                                 {optImg && (
                                                                                     <div style={{ marginTop: '4px' }}>
@@ -2140,8 +2283,36 @@ export const QuestionManagement = () => {
                                                                 </div>
 
                                                                 {q.explanation && (
-                                                                    <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
-                                                                        <strong>[해설]</strong> {q.explanation}
+                                                                    <div style={{
+                                                                        marginTop: '0.75rem',
+                                                                        padding: '0.75rem',
+                                                                        background: '#f8fafc',
+                                                                        borderRadius: '0.5rem',
+                                                                        fontSize: '0.85rem',
+                                                                        color: '#64748b',
+                                                                        wordWrap: 'break-word',
+                                                                        wordBreak: 'break-word',
+                                                                        overflowWrap: 'break-word',
+                                                                        lineHeight: '1.6',
+                                                                        width: '100%',
+                                                                        maxWidth: '100%',
+                                                                        boxSizing: 'border-box'
+                                                                    }}>
+                                                                        <strong>[해설]</strong>
+                                                                        <div
+                                                                            style={{
+                                                                                marginTop: '0.5rem',
+                                                                                wordWrap: 'break-word',
+                                                                                wordBreak: 'break-word',
+                                                                                overflowWrap: 'break-word'
+                                                                            }}
+                                                                            dangerouslySetInnerHTML={{
+                                                                                __html: DOMPurify.sanitize(q.explanation, {
+                                                                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'img', 'a', 'h1', 'h2', 'h3'],
+                                                                                    ALLOWED_ATTR: ['src', 'alt', 'href', 'target', 'style']
+                                                                                })
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                 )}
                                                             </div>
