@@ -441,4 +441,32 @@ export const ExamService = {
             return { success: false, message: 'Server error' };
         }
     },
+
+    // ⭐️ Move Questions to another Exam
+    moveQuestions: async (questionIds: string[], targetExamId: string): Promise<{ success: boolean; message?: string; failCount?: number }> => {
+        let failCount = 0;
+        try {
+            // Process in parallel or sequence based on volume. Sequence is safer for now.
+            for (const qId of questionIds) {
+                const response = await fetch(`/api/questions/${qId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ examId: targetExamId })
+                });
+                if (!response.ok) failCount++;
+            }
+
+            if (failCount === 0) {
+                return { success: true };
+            } else if (failCount === questionIds.length) {
+                return { success: false, message: '모든 문제 이동에 실패했습니다.' };
+            } else {
+                return { success: true, message: `${failCount}개의 문제는 이동 실패했습니다.`, failCount };
+            }
+        } catch (error) {
+            console.error('moveQuestions error:', error);
+            return { success: false, message: '서버 오류 발생' };
+        }
+    }
+},
 };

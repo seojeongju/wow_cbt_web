@@ -65,6 +65,12 @@ export async function onRequestPut(context) {
             });
         }
 
+        // ⭐️ Exam ID Update (Move Question)
+        if (body.examId !== undefined) {
+            updates.push('exam_id = ?');
+            params.push(body.examId);
+        }
+
         if (updates.length === 0) {
             return new Response(JSON.stringify({
                 success: false,

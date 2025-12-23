@@ -305,7 +305,18 @@ export const QuestionManagement = () => {
         const data = await ExamService.getAllQuestions(examId);
         console.log(`✅ Loaded ${data.length} questions`);
         setQuestions(data);
+        setSelectedQuestionIds([]); // Reset selection on load
     };
+
+    // ⭐️ Multi-select & Batch Move State
+    const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+    const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = useState(false);
+    const [batchMoveTargetCourseId, setBatchMoveTargetCourseId] = useState('');
+    const [batchMoveTargetSubjects, setBatchMoveTargetSubjects] = useState<any[]>([]);
+    const [batchMoveTargetSubjectId, setBatchMoveTargetSubjectId] = useState('');
+    const [batchMoveTargetExams, setBatchMoveTargetExams] = useState<any[]>([]);
+    const [batchMoveTargetExamId, setBatchMoveTargetExamId] = useState('');
+
 
     // Form State
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -405,6 +416,93 @@ export const QuestionManagement = () => {
     // ...
 
     // ...
+
+    // ⭐️ Batch Move Handlers
+    const toggleQuestionSelection = (id: string) => {
+        setSelectedQuestionIds(prev =>
+            prev.includes(id) ? prev.filter(qId => qId !== id) : [...prev, id]
+        );
+    };
+
+    const toggleAllQuestions = () => {
+        if (selectedQuestionIds.length === questions.length) {
+            setSelectedQuestionIds([]);
+        } else {
+            setSelectedQuestionIds(questions.map(q => q.id));
+        }
+    };
+
+    const openBatchMoveModal = () => {
+        if (selectedQuestionIds.length === 0) return alert('이동할 문제를 선택해주세요.');
+
+        // Init target selectors
+        const currentCourseObj = fullCourses.find(c => c.name === selectedCourse);
+        if (currentCourseObj) {
+            setBatchMoveTargetCourseId(currentCourseObj.id);
+            // Load Subjects
+            SubjectService.getSubjects(currentCourseObj.id).then(subs => setBatchMoveTargetSubjects(subs));
+            setBatchMoveTargetSubjectId(selectedSubjectId || '');
+
+            // Load Exams (Initially based on current context)
+            // But we want to allow moving to ANY exam.
+            // Let's load exams for the current course initially
+            ExamService.getExamsByCourse(currentCourseObj.name).then(exams => setBatchMoveTargetExams(exams));
+        }
+        setBatchMoveTargetExamId('');
+        setIsBatchMoveModalOpen(true);
+    };
+
+    const handleBatchMoveQuestions = async () => {
+        if (!batchMoveTargetExamId) return alert('이동할 대상 시험지를 선택해주세요.');
+        if (batchMoveTargetExamId === selectedExamId) return alert('현재 시험지로 이동할 수 없습니다.');
+
+        const confirmMsg = `${selectedQuestionIds.length}개의 문제를 선택한 시험지로 이동하시겠습니까?`;
+        if (confirm(confirmMsg)) {
+            const result = await ExamService.moveQuestions(selectedQuestionIds, batchMoveTargetExamId);
+            if (result.success) {
+                alert(result.message || '이동되었습니다.'); // Some might fail, but treat as success roughly
+                setIsBatchMoveModalOpen(false);
+                setSelectedQuestionIds([]);
+                loadQuestions(selectedExamId); // Reload current list (moved items should disappear if filtered by exam, which they are)
+            } else {
+                alert(result.message || '이동 실패');
+            }
+        }
+    };
+
+    // Effect to reload subjects/exams when batch target changes
+    useEffect(() => {
+        if (!isBatchMoveModalOpen) return;
+
+        const loadSubjects = async () => {
+            if (batchMoveTargetCourseId) {
+                const subs = await SubjectService.getSubjects(batchMoveTargetCourseId);
+                setBatchMoveTargetSubjects(subs);
+                setBatchMoveTargetSubjectId(''); // Reset subject
+            }
+        };
+        loadSubjects();
+    }, [batchMoveTargetCourseId, isBatchMoveModalOpen]);
+
+    useEffect(() => {
+        if (!isBatchMoveModalOpen) return;
+
+        const loadExams = async () => {
+            // We need course NAME for getExamsByCourse... inconsistent API design :( 
+            // Let's find course name from fullCourses
+            const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
+            if (cObj) {
+                const exams = await ExamService.getExamsByCourse(cObj.name);
+                // Filter by subject if selected
+                const filtered = batchMoveTargetSubjectId
+                    ? exams.filter(e => e.subjectId === batchMoveTargetSubjectId)
+                    : exams;
+                setBatchMoveTargetExams(filtered);
+            }
+        };
+        loadExams();
+    }, [batchMoveTargetCourseId, batchMoveTargetSubjectId, isBatchMoveModalOpen]);
+
 
     // ⭐️ Category Management Handlers (Async)
     const handleAddCategory = async () => {
@@ -1802,6 +1900,13 @@ export const QuestionManagement = () => {
                             <>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={questions.length > 0 && selectedQuestionIds.length === questions.length}
+                                            onChange={toggleAllQuestions}
+                                            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                                            title="전체 선택"
+                                        />
                                         <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>문제 목록</h3>
                                         <span style={{ fontSize: '0.8rem', background: 'var(--slate-100)', padding: '0.2rem 0.5rem', borderRadius: '4px', color: 'var(--slate-500)' }}>
                                             {selectedCourse} &gt; {exams.find(e => e.id === selectedExamId)?.title}
@@ -1809,6 +1914,16 @@ export const QuestionManagement = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                        {/* ⭐️ Batch Move Button */}
+                                        {selectedQuestionIds.length > 0 && (
+                                            <button
+                                                onClick={openBatchMoveModal}
+                                                className="btn btn-primary"
+                                                style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                            >
+                                                <FileUp size={16} /> {selectedQuestionIds.length}개 이동
+                                            </button>
+                                        )}
                                         {/* ⭐️ AI Setting Button */}
                                         <button
                                             onClick={() => setShowApiKeyModal(true)}
@@ -2199,12 +2314,23 @@ export const QuestionManagement = () => {
                                                             overflow: 'visible'
                                                         }}>
                                                             {/* ⭐️ Number Badge */}
+                                                            <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: '0.2rem', marginRight: '0.8rem' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedQuestionIds.includes(q.id)}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        toggleQuestionSelection(q.id);
+                                                                    }}
+                                                                    style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }}
+                                                                />
+                                                            </div>
                                                             <div style={{
                                                                 display: 'flex',
                                                                 flexDirection: 'column',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'flex-start',
-                                                                minWidth: '3rem',
+                                                                minWidth: '2.5rem',
                                                                 paddingTop: '0.2rem'
                                                             }}>
                                                                 <span style={{
@@ -3362,13 +3488,71 @@ export const QuestionManagement = () => {
                     </div>
                 )
             }
-        </div >
+            {/* ⭐️ Batch Move Modal */}
+            {isBatchMoveModalOpen && (
+                <div className="modal-overlay" onClick={() => setIsBatchMoveModalOpen(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
+                            선택한 문제 이동 ({selectedQuestionIds.length}개)
+                        </h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <label className="input-label">이동할 과정</label>
+                                <select
+                                    className="input-field"
+                                    value={batchMoveTargetCourseId}
+                                    onChange={e => setBatchMoveTargetCourseId(e.target.value)}
+                                >
+                                    {fullCourses.map((c: any) => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="input-label">과목 (필터)</label>
+                                <select
+                                    className="input-field"
+                                    value={batchMoveTargetSubjectId}
+                                    onChange={e => setBatchMoveTargetSubjectId(e.target.value)}
+                                >
+                                    <option value="">전체 과목</option>
+                                    {batchMoveTargetSubjects.map((s: any) => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="input-label">대상 시험지</label>
+                                <select
+                                    className="input-field"
+                                    value={batchMoveTargetExamId}
+                                    onChange={e => setBatchMoveTargetExamId(e.target.value)}
+                                >
+                                    <option value="">이동할 시험지를 선택하세요</option>
+                                    {batchMoveTargetExams.map((e: any) => (
+                                        <option key={e.id} value={e.id}>
+                                            {e.round ? `[${e.round}] ` : ''}{e.title} ({e.questionsCount || 0}문제)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="modal-actions" style={{ marginTop: '2rem' }}>
+                            <button onClick={() => setIsBatchMoveModalOpen(false)} className="btn btn-secondary">취소</button>
+                            <button onClick={handleBatchMoveQuestions} className="btn btn-primary" disabled={!batchMoveTargetExamId}>
+                                이동하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
-
-
-
-
 
 
 
