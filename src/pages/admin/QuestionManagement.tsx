@@ -478,7 +478,7 @@ export const QuestionManagement = () => {
             if (batchMoveTargetCourseId) {
                 const subs = await SubjectService.getSubjects(batchMoveTargetCourseId);
                 setBatchMoveTargetSubjects(subs);
-                setBatchMoveTargetSubjectId(''); // Reset subject
+                setBatchMoveTargetSubjectId(''); // Reset subject when course changes
             }
         };
         loadSubjects();
@@ -493,9 +493,9 @@ export const QuestionManagement = () => {
             const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
             if (cObj) {
                 const exams = await ExamService.getExamsByCourse(cObj.name);
-                // Filter by subject if selected
+                // Filter by subject if selected (Use String conversion for safety)
                 const filtered = batchMoveTargetSubjectId
-                    ? exams.filter(e => e.subjectId == batchMoveTargetSubjectId)
+                    ? exams.filter(e => String(e.subjectId) === String(batchMoveTargetSubjectId))
                     : exams;
                 setBatchMoveTargetExams(filtered);
             }
@@ -3544,6 +3544,7 @@ export const QuestionManagement = () => {
                                     onChange={e => setBatchMoveTargetExamId(e.target.value)}
                                 >
                                     <option value="">이동할 시험지를 선택하세요</option>
+                                    {batchMoveTargetExams.length === 0 && <option disabled>표시할 시험지가 없습니다. (과목 필터를 변경해보세요)</option>}
                                     {batchMoveTargetExams.map((e: any) => (
                                         <option key={e.id} value={e.id}>
                                             {e.round ? `[${e.round}] ` : ''}{e.title} ({e.questionsCount || 0}문제)
