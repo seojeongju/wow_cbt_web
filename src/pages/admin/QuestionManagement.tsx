@@ -445,9 +445,12 @@ export const QuestionManagement = () => {
             setBatchMoveSelectedTitle(''); // Reset
             setBatchMoveTargetExamId('');
 
-            // Note: We load ALL exams for the course and filter them in the UI
-            // This ensures data consistency based on actual exam data.
-            ExamService.getExamsByCourse(currentCourseObj.name).then(exams => setBatchMoveTargetExams(exams));
+            // ⭐️ Pre-load exams from current view
+            if (availableExams && availableExams.length > 0) {
+                setBatchMoveTargetExams(availableExams);
+            } else {
+                ExamService.getExamsByCourse(currentCourseObj.name).then(exams => setBatchMoveTargetExams(exams));
+            }
         }
         setIsBatchMoveModalOpen(true);
     };
