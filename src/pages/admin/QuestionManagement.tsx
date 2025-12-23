@@ -495,7 +495,7 @@ export const QuestionManagement = () => {
                 const exams = await ExamService.getExamsByCourse(cObj.name);
                 // Filter by subject if selected
                 const filtered = batchMoveTargetSubjectId
-                    ? exams.filter(e => e.subjectId === batchMoveTargetSubjectId)
+                    ? exams.filter(e => e.subjectId == batchMoveTargetSubjectId)
                     : exams;
                 setBatchMoveTargetExams(filtered);
             }
