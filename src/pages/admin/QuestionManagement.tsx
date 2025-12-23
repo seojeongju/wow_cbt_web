@@ -441,7 +441,7 @@ export const QuestionManagement = () => {
             setBatchMoveTargetCourseId(currentCourseObj.id);
             // Load Subjects
             SubjectService.getSubjects(currentCourseObj.id).then(subs => setBatchMoveTargetSubjects(subs));
-            setBatchMoveTargetSubjectId(selectedSubjectId || '');
+            setBatchMoveTargetSubjectId(''); // Show ALL exams initially
 
             // Load Exams (Initially based on current context)
             // But we want to allow moving to ANY exam.
