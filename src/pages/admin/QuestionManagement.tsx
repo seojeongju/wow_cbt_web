@@ -1860,6 +1860,12 @@ export const QuestionManagement = () => {
                                                         value={newQuestion.category}
                                                         onChange={e => setNewQuestion({ ...newQuestion, category: e.target.value })}
                                                     >
+                                                        {/* ⭐️ 현재 값이 목록에 없으면(예: AI 추출) 임시로 보여줌 -> 사용자가 변경하도록 유도 */}
+                                                        {newQuestion.category && !categories.includes(newQuestion.category) && (
+                                                            <option value={newQuestion.category} disabled>
+                                                                {newQuestion.category === 'AI_Extracted' ? 'AI 추출' : newQuestion.category} (현재 설정)
+                                                            </option>
+                                                        )}
                                                         {categories.map(cat => (
                                                             <option key={cat} value={cat}>{cat}</option>
                                                         ))}

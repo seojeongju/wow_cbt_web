@@ -82,7 +82,7 @@ export const ExamService = {
     // --------------------------------------------------------------------------
     getAllQuestions: async (examId: string): Promise<Question[]> => {
         try {
-            const response = await fetch(`/api/exams/${examId}/questions`);
+            const response = await fetch(`/api/exams/${examId}/questions?t=${Date.now()}`);
             const data = await response.json();
             return (data.questions || []).map((q: any) => {
                 // Parse correctAnswer properly - convert string numbers to actual numbers
