@@ -3490,8 +3490,20 @@ export const QuestionManagement = () => {
             }
             {/* ⭐️ Batch Move Modal */}
             {isBatchMoveModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsBatchMoveModalOpen(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                <div
+                    onClick={() => setIsBatchMoveModalOpen(false)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: 'white', padding: '2rem', borderRadius: '1rem', width: '90%', maxWidth: '500px',
+                            maxHeight: '90vh', overflowY: 'auto'
+                        }}
+                    >
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
                             선택한 문제 이동 ({selectedQuestionIds.length}개)
                         </h3>
