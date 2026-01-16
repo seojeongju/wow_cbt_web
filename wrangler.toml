@@ -1,0 +1,11 @@
+# Cloudflare Pages Direct Upload
+# To deploy, run: npm run deploy
+name = "wow-cbt-webmain"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wow-cbt-db"
+database_id = "1a781c23-bfc9-42f4-a4e6-a3db7e5812bf"
+
