@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, FileText, TrendingUp, Activity, Award, MessageCircle, Settings } from 'lucide-react';
 import { AuthService } from '../../services/authService';
-import { ExamService } from '../../services/examService';
 import { AnalyticsService } from '../../services/analyticsService';
 import { ExamResult } from '../../types';
 
@@ -26,37 +25,16 @@ export const AdminDashboard = () => {
     useEffect(() => {
         const fetchAllData = async () => {
             try {
-                // 1. 사용자 데이터 & 매핑 준비
-                const users = await AuthService.getAllUsers();
-                const students = users.filter(u => u.role === 'student');
-                const pendingUsers = users.filter(u => !u.approved).length;
-                const pendingCourses = users.filter(u => u.approved && u.pendingCourses && u.pendingCourses.length > 0).length; // ⭐️ Count users with pending courses
+                // 1. 통계 데이터 가져오기 (AnalyticsService 활용)
+                const overview = await AnalyticsService.getOverviewStats();
+                const allResults = await AnalyticsService.getGlobalExamHistory();
 
+                // 2. 사용자 이름 매핑을 위해 User 목록 가져오기 (최근 활동 표시용)
+                const users = await AuthService.getAllUsers();
                 const userMap = new Map<string, string>();
                 users.forEach(u => userMap.set(u.id, u.name));
 
-                // 2. 시험 및 문제 데이터
-                const exams = await ExamService.getExamList();
-                const totalQuestions = exams.reduce((sum, exam) => {
-                    const questionCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
-                    return sum + questionCount;
-                }, 0);
-
-                // 3. 시험 결과 데이터 (Using AnalyticsService)
-                const allResults = await AnalyticsService.getGlobalExamHistory();
-
-                // 이번 주 시험 수 계산
-                const oneWeekAgo = new Date();
-                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                const weeklyExams = allResults.filter(r => new Date(r.date) > oneWeekAgo).length;
-
-                // 평균 합격률 계산
-                const passedCount = allResults.filter(r => r.passed).length;
-                const avgPassRate = allResults.length > 0
-                    ? Math.round((passedCount / allResults.length) * 100)
-                    : 0;
-
-                // 최근 활동 (최근 5개) + User Name Mapping
+                // 3. 최근 활동 (최근 5개) + User Name Mapping
                 const recentActivitiesWithNames = allResults
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .slice(0, 5)
@@ -66,12 +44,12 @@ export const AdminDashboard = () => {
                     }));
 
                 setStats({
-                    totalStudents: students.length,
-                    totalQuestions,
-                    avgPassRate,
-                    weeklyExams,
-                    pendingUsers,
-                    pendingCourses
+                    totalStudents: overview.totalStudents,
+                    totalQuestions: overview.totalQuestions,
+                    avgPassRate: overview.avgPassRate,
+                    weeklyExams: overview.weeklyExams,
+                    pendingUsers: overview.pendingUsers,
+                    pendingCourses: overview.pendingCourses
                 });
                 setRecentActivities(recentActivitiesWithNames);
                 setLoading(false);
