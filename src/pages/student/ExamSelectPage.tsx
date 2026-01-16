@@ -21,6 +21,7 @@ export const ExamSelectPage = () => {
     const [selectedSubject, setSelectedSubject] = useState<string>('all');
     const [selectedTopic, setSelectedTopic] = useState<string>('all');
     const [selectedRound, setSelectedRound] = useState<string>('all');
+    const [selectedStatus, setSelectedStatus] = useState<string>('all'); // 'all', 'taken', 'not-taken'
     const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
 
     // URL에서 과정명 가져오기
@@ -44,7 +45,7 @@ export const ExamSelectPage = () => {
     // Apply filters whenever filter values change
     useEffect(() => {
         applyFilters();
-    }, [exams, selectedSubject, selectedTopic, selectedRound, searchText]);
+    }, [exams, selectedSubject, selectedTopic, selectedRound, selectedStatus, searchText, examHistory]);
 
     const loadExams = async () => {
         try {
@@ -118,6 +119,16 @@ export const ExamSelectPage = () => {
             result = result.filter(exam => exam.round === selectedRound);
         }
 
+        // Status filter (응시 여부)
+        if (selectedStatus !== 'all') {
+            result = result.filter(exam => {
+                const status = getExamStatus(exam.id);
+                if (selectedStatus === 'taken') return status?.taken;
+                if (selectedStatus === 'not-taken') return !status?.taken;
+                return true;
+            });
+        }
+
         // Search filter
         if (searchText.trim()) {
             const search = searchText.toLowerCase();
@@ -135,6 +146,7 @@ export const ExamSelectPage = () => {
         setSelectedSubject('all');
         setSelectedTopic('all');
         setSelectedRound('all');
+        setSelectedStatus('all');
         setSearchText('');
     };
 
@@ -160,7 +172,7 @@ export const ExamSelectPage = () => {
     const topics = ['all', ...Array.from(new Set(exams.map(e => e.title).filter(Boolean)))];
     const rounds = ['all', ...Array.from(new Set(exams.map(e => e.round).filter(Boolean)))];
 
-    const hasActiveFilters = selectedSubject !== 'all' || selectedTopic !== 'all' || selectedRound !== 'all' || searchText.trim();
+    const hasActiveFilters = selectedSubject !== 'all' || selectedTopic !== 'all' || selectedRound !== 'all' || selectedStatus !== 'all' || searchText.trim();
     const displayExams = hasActiveFilters || exams.length > 0 ? filteredExams : exams;
 
     return (
@@ -298,6 +310,29 @@ export const ExamSelectPage = () => {
                                     {rounds.filter(r => r !== 'all').map(round => (
                                         <option key={round} value={round}>{round}</option>
                                     ))}
+                                </select>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '0.5rem' }}>
+                                    응시 여부
+                                </label>
+                                <select
+                                    value={selectedStatus}
+                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: '1px solid var(--slate-200)',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="all">전체</option>
+                                    <option value="taken">응시 완료</option>
+                                    <option value="not-taken">미응시</option>
                                 </select>
                             </div>
                         </div>
