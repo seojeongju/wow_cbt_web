@@ -458,16 +458,30 @@ export const ExamSelectPage = () => {
 
                                         <button
                                             onClick={() => navigate(`/exam/${exam.id}`)}
-                                            className={status?.taken ? "btn btn-outline" : "btn btn-primary"}
                                             style={{
                                                 marginTop: 'auto',
                                                 width: '100%',
                                                 justifyContent: 'center',
-                                                borderColor: status?.taken ? 'var(--slate-200)' : undefined,
-                                                color: status?.taken ? 'var(--slate-600)' : undefined
+                                                padding: '0.8rem',
+                                                borderRadius: '0.5rem',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                fontWeight: 700,
+                                                fontSize: '1rem',
+                                                background: status?.taken ? 'var(--slate-800)' : 'var(--primary-600)',
+                                                color: 'white',
+                                                boxShadow: status?.taken ? '0 4px 6px -1px rgba(71, 85, 105, 0.2)' : '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
                                             }}
                                         >
-                                            {status?.taken ? '재응시하기' : '시험 응시하기'}
+                                            {status?.taken ? (
+                                                <><RotateCcw size={18} /> 재응시하기</>
+                                            ) : (
+                                                '시험 응시하기'
+                                            )}
                                         </button>
                                     </div>
                                 );
