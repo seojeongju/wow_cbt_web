@@ -1,25 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FileText, Clock, AlertCircle, X, Search } from 'lucide-react';
+import { ChevronLeft, Search, Filter, PlayCircle, Clock, AlertCircle, FileText, X, CheckCircle, RotateCcw } from 'lucide-react';
 import { MainLayout } from '../../layouts/MainLayout';
 import { ExamService } from '../../services/examService';
 import { AuthService } from '../../services/authService';
-import { Exam, User } from '../../types';
+import { Exam, ExamResult } from '../../types';
 
 export const ExamSelectPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [exams, setExams] = useState<Exam[]>([]);
+    const [allExams, setAllExams] = useState<Exam[]>([]); // Renamed from 'exams' to 'allExams'
     const [filteredExams, setFilteredExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
 
     // Filter states
+    const [selectedCourse, setSelectedCourse] = useState<string>('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const [selectedSubject, setSelectedSubject] = useState<string>('all');
-    const [selectedTopic, setSelectedTopic] = useState<string>('all');
-    const [selectedRound, setSelectedRound] = useState<string>('all');
-    const [searchText, setSearchText] = useState<string>('');
+    const [selectedRound, setSelectedRound] = useState<string>('all-rounds');
+    const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
 
     // URL에서 과정명 가져오기
     const courseFilter = searchParams.get('course');
@@ -348,66 +350,106 @@ export const ExamSelectPage = () => {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                            {displayExams.map((exam) => (
-                                <div key={exam.id} className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div style={{
-                                        width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-100)', color: 'var(--primary-600)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem'
+                            {displayExams.map((exam) => {
+                                const status = getExamStatus(exam.id);
+                                return (
+                                    <div key={exam.id} className="glass-card" style={{
+                                        padding: '1.5rem',
+                                        background: 'white',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '1rem',
+                                        border: status?.passed ? '1px solid #86efac' : (status?.taken ? '1px solid #fee2e2' : '1px solid white'),
+                                        boxShadow: status?.passed ? '0 4px 12px rgba(22, 163, 74, 0.1)' : undefined
                                     }}>
-                                        <FileText size={24} />
-                                    </div>
-
-                                    <div>
-                                        {/* 중분류 (과목) */}
-                                        {exam.subjectName && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{
-                                                fontSize: '0.75rem',
-                                                color: 'var(--primary-600)',
-                                                fontWeight: 600,
-                                                marginBottom: '0.25rem',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.025em'
+                                                width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-100)', color: 'var(--primary-600)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                             }}>
-                                                {exam.subjectName}
+                                                <FileText size={24} />
                                             </div>
-                                        )}
-
-                                        {/* 소분류 (시험지 제목) */}
-                                        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.25rem', lineHeight: 1.3 }}>
-                                            {exam.title}
-                                        </h3>
-
-                                        {/* 차시 (회차) */}
-                                        {exam.round && (
-                                            <div style={{
-                                                fontSize: '0.85rem',
-                                                color: 'var(--slate-600)',
-                                                fontWeight: 500,
-                                                marginBottom: '0.5rem'
-                                            }}>
-                                                {exam.round}
-                                            </div>
-                                        )}
-
-                                        <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', gap: '1rem' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                <Clock size={14} /> {exam.timeLimit > 0 ? `${exam.timeLimit}분` : '제한없음'}
-                                            </span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                <AlertCircle size={14} /> {exam.questions?.length || exam.questionsCount || 0}문항
-                                            </span>
+                                            {status?.taken && (
+                                                <div style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    borderRadius: '1rem',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 700,
+                                                    background: status.passed ? '#dcfce7' : '#fee2e2',
+                                                    color: status.passed ? '#15803d' : '#b91c1c',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.25rem'
+                                                }}>
+                                                    {status.passed ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                                                    {status.passed ? `합격 (${status.score}점)` : `불합격 (${status.score}점)`}
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
 
-                                    <button
-                                        onClick={() => navigate(`/exam/${exam.id}`)}
-                                        className="btn btn-primary"
-                                        style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}
-                                    >
-                                        시험 응시하기
-                                    </button>
-                                </div>
-                            ))}
+                                        <div>
+                                            {/* 중분류 (과목) */}
+                                            {exam.subjectName && (
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--primary-600)',
+                                                    fontWeight: 600,
+                                                    marginBottom: '0.25rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.025em'
+                                                }}>
+                                                    {exam.subjectName}
+                                                </div>
+                                            )}
+
+                                            {/* 소분류 (시험지 제목) */}
+                                            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.25rem', lineHeight: 1.3 }}>
+                                                {exam.title}
+                                            </h3>
+
+                                            {/* 차시 (회차) */}
+                                            {exam.round && (
+                                                <div style={{
+                                                    fontSize: '0.85rem',
+                                                    color: 'var(--slate-600)',
+                                                    fontWeight: 500,
+                                                    marginBottom: '0.5rem'
+                                                }}>
+                                                    {exam.round}
+                                                </div>
+                                            )}
+
+                                            <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                    <Clock size={14} /> {exam.timeLimit > 0 ? `${exam.timeLimit}분` : '제한없음'}
+                                                </span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                    <AlertCircle size={14} /> {exam.questions?.length || exam.questionsCount || 0}문항
+                                                </span>
+                                                {status?.taken && (
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#64748b' }}>
+                                                        <RotateCcw size={14} /> {status.count > 1 ? `${status.count}회 응시` : '1회 응시'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => navigate(`/exam/${exam.id}`)}
+                                            className={status?.taken ? "btn btn-outline" : "btn btn-primary"}
+                                            style={{
+                                                marginTop: 'auto',
+                                                width: '100%',
+                                                justifyContent: 'center',
+                                                borderColor: status?.taken ? 'var(--slate-200)' : undefined,
+                                                color: status?.taken ? 'var(--slate-600)' : undefined
+                                            }}
+                                        >
+                                            {status?.taken ? '재응시하기' : '시험 응시하기'}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </>
                 )}
