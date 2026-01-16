@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, FileText, TrendingUp, Activity, Award, MessageCircle, Settings } from 'lucide-react';
+import { Users, FileText, TrendingUp, Activity, Award, MessageCircle, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { AnalyticsService } from '../../services/analyticsService';
 import { ExamResult } from '../../types';
@@ -18,8 +18,10 @@ export const AdminDashboard = () => {
         pendingUsers: 0,
         pendingCourses: 0 // ⭐️ Added
     });
-    // Activity needs user name, so we extend the type or map it during render
-    const [recentActivities, setRecentActivities] = useState<(ExamResult & { userName: string })[]>([]);
+    // Pagination for recent activities
+    const [allActivities, setAllActivities] = useState<(ExamResult & { userName: string })[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -34,10 +36,9 @@ export const AdminDashboard = () => {
                 const userMap = new Map<string, string>();
                 users.forEach(u => userMap.set(u.id, u.name));
 
-                // 3. 최근 활동 (최근 5개) + User Name Mapping
-                const recentActivitiesWithNames = allResults
+                // 3. 최근 활동 (전체 목록 저장) + User Name Mapping
+                const activitiesWithNames = allResults
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 5)
                     .map(r => ({
                         ...r,
                         userName: userMap.get(r.userId) || r.userId // Fallback to ID if name not found
@@ -51,7 +52,7 @@ export const AdminDashboard = () => {
                     pendingUsers: overview.pendingUsers,
                     pendingCourses: overview.pendingCourses
                 });
-                setRecentActivities(recentActivitiesWithNames);
+                setAllActivities(activitiesWithNames);
                 setLoading(false);
             } catch (error) {
                 console.error('Failed to fetch admin stats:', error);
@@ -62,10 +63,25 @@ export const AdminDashboard = () => {
         fetchAllData();
     }, []);
 
+    // Pagination Logic
+    const totalPages = Math.ceil(allActivities.length / itemsPerPage);
+    const currentActivities = allActivities.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+
+
     return (
         <div>
             {/* Welcome Section */}
-            {/* Welcome Section with Reset Button */}
+            {/* ...Welcome Section... (omitted to focus on changes, but need to match exact lines to replace correctly, actually I will just replace the render logic where recentActivities is used and insert logic before return) */}
             <section style={{
                 marginBottom: '2rem',
                 padding: '2rem',
@@ -84,8 +100,6 @@ export const AdminDashboard = () => {
                         오늘도 WOW3D-CBT 교육센터를 성장시켜주셔서 감사합니다.
                     </p>
                 </div>
-
-
             </section>
 
             {/* Statistics Cards */}
@@ -204,20 +218,67 @@ export const AdminDashboard = () => {
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                             로딩 중...
                         </div>
-                    ) : recentActivities.length > 0 ? (
-                        recentActivities.map((activity, index) => {
-                            const timeAgo = getTimeAgo(activity.date);
-                            return (
-                                <ActivityItem
-                                    key={activity.id}
-                                    time={timeAgo}
-                                    user={activity.userName} // ⭐️ Use mapped userName
-                                    action={activity.examTitle}
-                                    score={`${activity.score}점`}
-                                    isLast={index === recentActivities.length - 1}
-                                />
-                            );
-                        })
+                    ) : currentActivities.length > 0 ? (
+                        <>
+                            {currentActivities.map((activity, index) => {
+                                const timeAgo = getTimeAgo(activity.date);
+                                return (
+                                    <ActivityItem
+                                        key={activity.id}
+                                        time={timeAgo}
+                                        user={activity.userName} // ⭐️ Use mapped userName
+                                        action={activity.examTitle}
+                                        score={`${activity.score}점`}
+                                        isLast={index === currentActivities.length - 1}
+                                    />
+                                );
+                            })}
+
+                            {/* Pagination Controls */}
+                            {allActivities.length > itemsPerPage && (
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                    marginTop: '1.5rem',
+                                    paddingTop: '1rem',
+                                    borderTop: '1px solid #f1f5f9'
+                                }}>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        style={{
+                                            border: 'none',
+                                            background: 'none',
+                                            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                            color: currentPage === 1 ? '#cbd5e1' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                    <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>
+                                        {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        style={{
+                                            border: 'none',
+                                            background: 'none',
+                                            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                            color: currentPage === totalPages ? '#cbd5e1' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                             아직 시험 기록이 없습니다.
