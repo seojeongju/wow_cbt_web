@@ -9,6 +9,16 @@
   - 사용자가 각 카테고리별로 원하는 문제 개수를 직접 입력할 수 있는 UI 구현
   - 입력된 수량에 맞춰 랜덤하게 문제를 추출하는 로직(`ExamService.generateMockExam`) 구현 및 타입 정의 업데이트
 
+### 2. 학생 정보 수정 및 모의고사 리스트 개선
+- **경로**: `student/profile`, `student/exams`
+- **내용**:
+  - 학생 프로필 수정 페이지 구현 (비밀번호 변경 포함)
+  - 대시보드 헤더에 '내 정보' 버튼 추가
+  - 모의고사 리스트 UI 개선:
+    - 응시 상태에 따른 배지 표시 (합격/불합격/점수)
+    - 재응시 버튼 디자인 차별화 (가독성 개선)
+    - 응시 여부(전체/응시완료/미응시) 필터링 기능 추가
+
 ## 📦 배포 및 저장소 정보 (Deployment & Repository)
 - **배포 URL**: [https://wow-cbt-webmain.pages.dev/admin/mock-exam](https://wow-cbt-webmain.pages.dev/admin/mock-exam)
 - **GitHub 저장소**: [https://github.com/seojeongju/wow_cbt_web](https://github.com/seojeongju/wow_cbt_web) (메인 브랜치: `main`)
