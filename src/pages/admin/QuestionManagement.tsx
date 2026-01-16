@@ -339,6 +339,10 @@ export const QuestionManagement = () => {
     const [batchMoveSelectedTitle, setBatchMoveSelectedTitle] = useState('');
     const [batchMoveTargetExamId, setBatchMoveTargetExamId] = useState('');
 
+    // ⭐️ Batch Category Update State
+    const [isBatchCategoryModalOpen, setIsBatchCategoryModalOpen] = useState(false);
+    const [batchCategoryTarget, setBatchCategoryTarget] = useState('');
+
 
     // Form State
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -446,6 +450,22 @@ export const QuestionManagement = () => {
         );
     };
 
+    // ⭐️ Category-wise Batch Selection
+    const selectQuestionsByCategory = (category: string) => {
+        const categoryIds = questions
+            .filter(q => q.category === category)
+            .map(q => q.id);
+
+        if (categoryIds.length === 0) return;
+
+        setSelectedQuestionIds(prev => {
+            // If all of them are already selected, we might want to toggle them off? 
+            // Better to just "Add them all" to existing selection consistently.
+            const newSelection = new Set([...prev, ...categoryIds]);
+            return Array.from(newSelection);
+        });
+    };
+
     const toggleAllQuestions = () => {
         if (selectedQuestionIds.length === questions.length) {
             setSelectedQuestionIds([]);
@@ -490,6 +510,43 @@ export const QuestionManagement = () => {
             } else {
                 alert(result.message || '이동 실패');
             }
+        }
+    };
+
+    // ⭐️ Batch Update Category Handler
+    const handleBatchUpdateCategory = async () => {
+        if (!batchCategoryTarget) return alert('변경할 카테고리를 선택해주세요.');
+        if (selectedQuestionIds.length === 0) return;
+
+        const confirmMsg = `${selectedQuestionIds.length}개의 문제 카테고리를 '${batchCategoryTarget}'(으)로 일괄 변경하시겠습니까?`;
+        if (confirm(confirmMsg)) {
+            let successCount = 0;
+            let failCount = 0;
+
+            // 순차적으로 업데이트 (트랜잭션 대용)
+            for (const qId of selectedQuestionIds) {
+                const questionToUpdate = questions.find(q => q.id === qId);
+                if (questionToUpdate) {
+                    try {
+                        const updatedQ = { ...questionToUpdate, category: batchCategoryTarget };
+                        await ExamService.updateQuestionInExam(selectedExamId, updatedQ);
+                        successCount++;
+                    } catch (error) {
+                        console.error(`Failed to update category for question ${qId}:`, error);
+                        failCount++;
+                    }
+                }
+            }
+
+            if (failCount === 0) {
+                alert(`${successCount}개의 문제 카테고리가 변경되었습니다.`);
+            } else {
+                alert(`${successCount}개 성공, ${failCount}개 실패하였습니다.`);
+            }
+
+            setIsBatchCategoryModalOpen(false);
+            setSelectedQuestionIds([]);
+            loadQuestions(selectedExamId);
         }
     };
 
@@ -1990,15 +2047,27 @@ export const QuestionManagement = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                        {/* ⭐️ Batch Move Button */}
+                                        {/* ⭐️ Batch Category Update Button */}
                                         {selectedQuestionIds.length > 0 && (
-                                            <button
-                                                onClick={openBatchMoveModal}
-                                                className="btn btn-primary"
-                                                style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                            >
-                                                <FileUp size={16} /> {selectedQuestionIds.length}개 이동
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        setBatchCategoryTarget(categories.length > 0 ? categories[0] : '');
+                                                        setIsBatchCategoryModalOpen(true);
+                                                    }}
+                                                    className="btn btn-primary"
+                                                    style={{ background: '#3b82f6', borderColor: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                                >
+                                                    <Settings size={16} /> 카테고리 일괄변경
+                                                </button>
+                                                <button
+                                                    onClick={openBatchMoveModal}
+                                                    className="btn btn-primary"
+                                                    style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                                >
+                                                    <FileUp size={16} /> {selectedQuestionIds.length}개 이동
+                                                </button>
+                                            </div>
                                         )}
                                         {/* ⭐️ AI Setting Button */}
                                         <button
@@ -2428,10 +2497,32 @@ export const QuestionManagement = () => {
                                                                 boxSizing: 'border-box',
                                                                 overflow: 'visible'
                                                             }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                                                    <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'var(--slate-100)', color: 'var(--slate-600)' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                                                                    <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'var(--slate-100)', color: 'var(--slate-600)', fontWeight: 600 }}>
                                                                         {q.category === 'AI_Extracted' ? 'AI 추출' : (q.category === 'PDF_Imported' ? 'PDF 추출' : q.category)}
                                                                     </span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            selectQuestionsByCategory(q.category);
+                                                                        }}
+                                                                        className="hover:text-primary-600"
+                                                                        style={{
+                                                                            fontSize: '0.7rem',
+                                                                            padding: '0.1rem 0.3rem',
+                                                                            borderRadius: '3px',
+                                                                            border: '1px solid var(--slate-200)',
+                                                                            background: 'white',
+                                                                            color: 'var(--slate-500)',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '2px'
+                                                                        }}
+                                                                        title="이 카테고리 전체 선택"
+                                                                    >
+                                                                        <CheckCircle size={10} /> 전체선택
+                                                                    </button>
                                                                 </div>
                                                                 <h4 style={{
                                                                     fontWeight: 600,
@@ -3693,6 +3784,50 @@ export const QuestionManagement = () => {
                             <button onClick={() => setIsBatchMoveModalOpen(false)} className="btn btn-secondary">취소</button>
                             <button onClick={handleBatchMoveQuestions} className="btn btn-primary">
                                 이동하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ⭐️ Batch Category Update Modal */}
+            {isBatchCategoryModalOpen && (
+                <div
+                    onClick={() => setIsBatchCategoryModalOpen(false)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: 'white', padding: '2rem', borderRadius: '1rem', width: '90%', maxWidth: '400px',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                        }}
+                    >
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
+                            카테고리 일괄 변경 ({selectedQuestionIds.length}개)
+                        </h3>
+
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label className="input-label">대상 카테고리 선택</label>
+                            <select
+                                className="input-field"
+                                value={batchCategoryTarget}
+                                onChange={e => setBatchCategoryTarget(e.target.value)}
+                            >
+                                <option value="" disabled>카테고리를 선택하세요</option>
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setIsBatchCategoryModalOpen(false)} className="btn btn-secondary">취소</button>
+                            <button onClick={handleBatchUpdateCategory} className="btn btn-primary" style={{ background: '#3b82f6', borderColor: '#2563eb' }}>
+                                변경하기
                             </button>
                         </div>
                     </div>
