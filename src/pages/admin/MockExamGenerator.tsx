@@ -61,10 +61,21 @@ export const MockExamGenerator = () => {
     const loadInitialData = async () => {
         const courseList = await CourseService.getCourses();
         setCourses(courseList);
-
-        const subjectList = await SubjectService.getSubjects();
-        setSubjects(subjectList);
+        // Don't load all subjects initially - load them when a course is selected
     };
+
+    // ⭐ Load subjects when course changes
+    useEffect(() => {
+        const loadSubjects = async () => {
+            if (selectedCourseId) {
+                const subjectList = await SubjectService.getSubjects(selectedCourseId);
+                setSubjects(subjectList);
+            } else {
+                setSubjects([]);
+            }
+        };
+        loadSubjects();
+    }, [selectedCourseId]);
 
     // Load questions when filters change
     useEffect(() => {

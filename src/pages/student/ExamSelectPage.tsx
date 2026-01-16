@@ -167,10 +167,20 @@ export const ExamSelectPage = () => {
         };
     };
 
-    // Get unique values for filters
-    const subjects = ['all', ...Array.from(new Set(exams.map(e => e.subjectName).filter(Boolean)))];
-    const topics = ['all', ...Array.from(new Set(exams.map(e => e.title).filter(Boolean)))];
-    const rounds = ['all', ...Array.from(new Set(exams.map(e => e.round).filter(Boolean)))];
+    // ⭐️ Dynamic Options Calculation (Hierarchical)
+
+    // 1. Subjects: Always from full list (exams)
+    const subjects = ['all', ...Array.from(new Set(exams.map(e => e.subjectName).filter(Boolean))).sort()];
+
+    // 2. Topics: Filtered by selectedSubject
+    const filteredForTopics = selectedSubject === 'all'
+        ? exams
+        : exams.filter(e => e.subjectName === selectedSubject);
+    const topics = ['all', ...Array.from(new Set(filteredForTopics.map(e => e.title).filter(Boolean))).sort()];
+
+    // 3. Rounds: Filtered by selectedSubject AND selectedTopic
+    const filteredForRounds = filteredForTopics.filter(e => selectedTopic === 'all' || e.title === selectedTopic);
+    const rounds = ['all', ...Array.from(new Set(filteredForRounds.map(e => e.round).filter(Boolean))).sort()];
 
     const hasActiveFilters = selectedSubject !== 'all' || selectedTopic !== 'all' || selectedRound !== 'all' || selectedStatus !== 'all' || searchText.trim();
     const displayExams = hasActiveFilters || exams.length > 0 ? filteredExams : exams;
@@ -248,7 +258,11 @@ export const ExamSelectPage = () => {
                                 </label>
                                 <select
                                     value={selectedSubject}
-                                    onChange={(e) => setSelectedSubject(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedSubject(e.target.value);
+                                        setSelectedTopic('all');
+                                        setSelectedRound('all');
+                                    }}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',
@@ -272,7 +286,10 @@ export const ExamSelectPage = () => {
                                 </label>
                                 <select
                                     value={selectedTopic}
-                                    onChange={(e) => setSelectedTopic(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedTopic(e.target.value);
+                                        setSelectedRound('all');
+                                    }}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',

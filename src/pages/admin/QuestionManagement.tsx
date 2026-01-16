@@ -49,6 +49,7 @@ export const QuestionManagement = () => {
         subjectName?: string;
         topic?: string;
         round?: string;
+        questionsCount?: number; // ⭐️ Added for deletion check
     }[]>([]);
 
     // ⭐️ Course Description Editing State
@@ -115,7 +116,8 @@ export const QuestionManagement = () => {
             subjectId: exam.subjectId, // Ensure this is mapped (Requires ExamService update to return it)
             subjectName: exam.subjectName,
             topic: exam.topic,
-            round: exam.round
+            round: exam.round,
+            questionsCount: exam.questionsCount // ⭐️ Map question count
         }));
         setExams(examsWithCourse);
 
@@ -146,7 +148,22 @@ export const QuestionManagement = () => {
 
     const handleDeleteSubject = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        if (!confirm('정말 이 분류를 삭제하시겠습니까? 포함된 시험지의 분류 정보가 초기화됩니다.')) return;
+
+        // ⭐ Check if any exams are using this subject
+        const examsUsingSubject = exams.filter(exam => exam.subjectId === id);
+
+        if (examsUsingSubject.length > 0) {
+            const examTitles = examsUsingSubject.slice(0, 5).map(e => e.title).join(', ');
+            const moreCount = examsUsingSubject.length > 5 ? ` 외 ${examsUsingSubject.length - 5}개` : '';
+            alert(
+                `이 분류(과목)를 사용하는 시험지가 ${examsUsingSubject.length}개 있습니다.\n\n` +
+                `시험지: ${examTitles}${moreCount}\n\n` +
+                `시험지를 먼저 삭제하거나 다른 분류로 이동한 후 삭제해주세요.`
+            );
+            return;
+        }
+
+        if (!confirm('정말 이 분류를 삭제하시겠습니까?')) return;
 
         const success = await SubjectService.deleteSubject(id);
         if (success) {
@@ -156,6 +173,9 @@ export const QuestionManagement = () => {
                 setSubjects(subs);
             }
             if (selectedSubjectId === id) setSelectedSubjectId(null);
+            alert('분류가 삭제되었습니다.');
+        } else {
+            alert('분류 삭제에 실패했습니다.');
         }
     };
 
@@ -338,6 +358,7 @@ export const QuestionManagement = () => {
     const [batchMoveSelectedSubjectName, setBatchMoveSelectedSubjectName] = useState('');
     const [batchMoveSelectedTitle, setBatchMoveSelectedTitle] = useState('');
     const [batchMoveTargetExamId, setBatchMoveTargetExamId] = useState('');
+    const [batchMoveTargetSubjects, setBatchMoveTargetSubjects] = useState<{ id: string; name: string }[]>([]);
 
     // ⭐️ Batch Category Update State
     const [isBatchCategoryModalOpen, setIsBatchCategoryModalOpen] = useState(false);
@@ -554,7 +575,7 @@ export const QuestionManagement = () => {
     useEffect(() => {
         if (!isBatchMoveModalOpen || !batchMoveTargetCourseId) return;
 
-        const loadExams = async () => {
+        const loadExamsAndSubjects = async () => {
             const cObj = fullCourses.find(c => c.id === batchMoveTargetCourseId);
             if (cObj) {
                 // Optimization: If target course is same as currently selected course in main view, use cached exams
@@ -564,11 +585,16 @@ export const QuestionManagement = () => {
                     const fetchedExams = await ExamService.getExamsByCourse(cObj.name);
                     setBatchMoveTargetExams(fetchedExams);
                 }
+
+                // ⭐ Load subjects for the selected course from the database
+                const subjects = await SubjectService.getSubjects(batchMoveTargetCourseId);
+                setBatchMoveTargetSubjects(subjects);
             } else {
                 setBatchMoveTargetExams([]);
+                setBatchMoveTargetSubjects([]);
             }
         };
-        loadExams();
+        loadExamsAndSubjects();
     }, [batchMoveTargetCourseId, isBatchMoveModalOpen, fullCourses, exams, selectedCourse]);
 
 
@@ -800,15 +826,23 @@ export const QuestionManagement = () => {
         const currentExam = exams.find(e => e.id === selectedExamId);
         if (!currentExam) return;
 
-        if (confirm(`'${currentExam.title}' 시험지를 정말 삭제하시겠습니까?\n포함된 모든 문제와 기록이 삭제될 수 있습니다.`)) {
-            const result = await ExamService.deleteExam(selectedExamId);
-            if (result.success) {
-                alert('시험지가 삭제되었습니다.');
-                setSelectedExamId('');
-                await loadInitialData();
-            } else {
-                alert('삭제에 실패했습니다.');
+        // ⭐️ Check for existing questions
+        if (currentExam.questionsCount && currentExam.questionsCount > 0) {
+            if (!confirm(`🚨 경고: '${currentExam.title}' 시험지에는 ${currentExam.questionsCount}개의 문제가 등록되어 있습니다.\n\n시험지를 삭제하면 포함된 모든 문제와 풀이 기록이 "영구적으로 삭제"됩니다.\n\n정말 삭제하시겠습니까?`)) {
+                return;
             }
+        } else {
+            if (!confirm(`'${currentExam.title}' 시험지를 정말 삭제하시겠습니까?`)) return;
+        }
+
+        const result = await ExamService.deleteExam(selectedExamId);
+        if (result.success) {
+            alert('시험지가 삭제되었습니다.');
+            setSelectedExamId('');
+            await loadInitialData();
+            setQuestions([]); // Clear question list
+        } else {
+            alert('삭제에 실패했습니다.');
         }
     };
 
@@ -1736,7 +1770,7 @@ export const QuestionManagement = () => {
                         <ChevronLeft size={18} /> 과정 목록으로
                     </button>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '1rem', color: '#1e293b' }}>
-                        {selectedCourse}
+                        {selectedCourse} (v1.0.1)
                     </h2>
                 </div>
             )}
@@ -1892,34 +1926,60 @@ export const QuestionManagement = () => {
                                         </div>
                                     </div>
 
-                                    {/* 2. Subject (Dynamic) */}
-                                    {(() => {
-                                        const uniqueSubjects = Array.from(new Set(availableExams.map(e => e.subjectName || '미분류'))).sort();
-                                        return (
-                                            <div style={{ flex: 1, minWidth: '180px' }}>
-                                                <label className="input-label">중분류 (과목)</label>
-                                                <select
-                                                    className="input-field"
-                                                    value={mainSelectedSubjectName}
-                                                    onChange={e => {
-                                                        setMainSelectedSubjectName(e.target.value);
-                                                        setMainSelectedTitle('');
-                                                        setSelectedExamId('');
-                                                    }}
-                                                    style={{ height: '42px' }}
-                                                >
-                                                    <option value="">과목을 선택하세요</option>
-                                                    {uniqueSubjects.map(sub => (
-                                                        <option key={sub} value={sub}>{sub}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        );
-                                    })()}
+                                    {/* 2. Subject (Dynamic) - Use actual subjects from database */}
+                                    <div style={{ flex: 1, minWidth: '180px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <label className="input-label" style={{ marginBottom: 0 }}>중분류 (과목)</label>
+                                            <button
+                                                onClick={() => setShowSubjectModal(true)}
+                                                style={{
+                                                    border: 'none',
+                                                    background: 'none',
+                                                    cursor: 'pointer',
+                                                    color: 'var(--primary-600)',
+                                                    fontSize: '0.75rem',
+                                                    padding: '2px 6px',
+                                                    fontWeight: 600,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                                title="과목 관리 (추가/수정/삭제)"
+                                            >
+                                                <Settings size={14} /> 관리
+                                            </button>
+                                        </div>
+                                        <select
+                                            className="input-field"
+                                            value={mainSelectedSubjectName}
+                                            onChange={e => {
+                                                setMainSelectedSubjectName(e.target.value);
+                                                setMainSelectedTitle('');
+                                                setSelectedExamId('');
+                                            }}
+                                            style={{ height: '42px' }}
+                                        >
+                                            <option value="">과목을 선택하세요</option>
+                                            {subjects.map(sub => (
+                                                <option key={sub.id} value={sub.name}>{sub.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                                    {/* 3. Title (Dynamic) */}
+                                    {/* 3. Title (Dynamic) - ⭐ Filter by subjectId */}
                                     {(() => {
-                                        const filteredBySubject = availableExams.filter(e => (e.subjectName || '미분류') === mainSelectedSubjectName);
+                                        // Find the selected subject's ID
+                                        const selectedSubject = subjects.find(s => s.name === mainSelectedSubjectName);
+                                        const selectedSubjectId = selectedSubject?.id;
+
+                                        // Filter by subjectId for accuracy
+                                        const filteredBySubject = availableExams.filter(e => {
+                                            if (selectedSubjectId) {
+                                                return e.subjectId === selectedSubjectId;
+                                            }
+                                            // Fallback
+                                            return (e.subjectName || '미분류') === mainSelectedSubjectName;
+                                        });
                                         const uniqueTitles = Array.from(new Set(filteredBySubject.map(e => e.title))).sort();
                                         return (
                                             <div style={{ flex: 1, minWidth: '180px' }}>
@@ -1943,12 +2003,22 @@ export const QuestionManagement = () => {
                                         );
                                     })()}
 
-                                    {/* 4. Round (Cha-si) */}
+                                    {/* 4. Round (Cha-si) - ⭐ Filter by subjectId and title */}
                                     {(() => {
-                                        const finalCandidates = availableExams.filter(e =>
-                                            (e.subjectName || '미분류') === mainSelectedSubjectName &&
-                                            e.title === mainSelectedTitle
-                                        );
+                                        // Find the selected subject's ID
+                                        const selectedSubject = subjects.find(s => s.name === mainSelectedSubjectName);
+                                        const selectedSubjectId = selectedSubject?.id;
+
+                                        const finalCandidates = availableExams.filter(e => {
+                                            // Match by subjectId
+                                            const subjectMatch = selectedSubjectId
+                                                ? e.subjectId === selectedSubjectId
+                                                : (e.subjectName || '미분류') === mainSelectedSubjectName;
+
+                                            const titleMatch = e.title === mainSelectedTitle;
+
+                                            return subjectMatch && titleMatch;
+                                        });
                                         return (
                                             <div style={{ flex: 1, minWidth: '180px' }}>
                                                 <label className="input-label">차시 (회차/Exam)</label>
@@ -1984,7 +2054,7 @@ export const QuestionManagement = () => {
                                             <button
                                                 onClick={openExamEditModal}
                                                 className="btn btn-secondary"
-                                                title="시험지 정보 수정"
+                                                title="시험지 정보 수정 (제목, 회차, 과목 등)"
                                                 style={{ color: 'var(--slate-600)' }}
                                             >
                                                 <Edit2 size={16} style={{ marginRight: '6px' }} /> 정보 수정
@@ -2047,7 +2117,7 @@ export const QuestionManagement = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                        {/* ⭐️ Batch Category Update Button */}
+                                        {/* Batch Actions Button Group */}
                                         {selectedQuestionIds.length > 0 && (
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button
@@ -2056,16 +2126,32 @@ export const QuestionManagement = () => {
                                                         setIsBatchCategoryModalOpen(true);
                                                     }}
                                                     className="btn btn-primary"
-                                                    style={{ background: '#3b82f6', borderColor: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                                    style={{
+                                                        background: '#3b82f6',
+                                                        borderColor: '#2563eb',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem',
+                                                        padding: '0.5rem 0.8rem',
+                                                        fontWeight: 600
+                                                    }}
                                                 >
-                                                    <Settings size={16} /> 카테고리 일괄변경
+                                                    <Settings size={16} /> 선택 유형 변경
                                                 </button>
                                                 <button
                                                     onClick={openBatchMoveModal}
                                                     className="btn btn-primary"
-                                                    style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                                    style={{
+                                                        background: '#f59e0b',
+                                                        borderColor: '#d97706',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem',
+                                                        padding: '0.5rem 0.8rem',
+                                                        fontWeight: 600
+                                                    }}
                                                 >
-                                                    <FileUp size={16} /> {selectedQuestionIds.length}개 이동
+                                                    <FileUp size={16} /> {selectedQuestionIds.length}개 시험지 이동
                                                 </button>
                                             </div>
                                         )}
@@ -3700,34 +3786,40 @@ export const QuestionManagement = () => {
                                 </select>
                             </div>
 
-                            {/* Logic to extract unique subjects from loaded exams */}
-                            {(() => {
-                                const uniqueSubjects = Array.from(new Set(batchMoveTargetExams.map(e => e.subjectName || '미분류'))).sort();
+                            {/* ⭐ Use actual subjects from database instead of extracting from exams */}
+                            <div>
+                                <label className="input-label">중분류 (과목)</label>
+                                <select
+                                    className="input-field"
+                                    value={batchMoveSelectedSubjectName}
+                                    onChange={e => {
+                                        setBatchMoveSelectedSubjectName(e.target.value);
+                                        setBatchMoveSelectedTitle('');
+                                        setBatchMoveTargetExamId('');
+                                    }}
+                                >
+                                    <option value="">과목을 선택하세요</option>
+                                    {batchMoveTargetSubjects.map(sub => (
+                                        <option key={sub.id} value={sub.name}>{sub.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                                return (
-                                    <div>
-                                        <label className="input-label">중분류 (과목)</label>
-                                        <select
-                                            className="input-field"
-                                            value={batchMoveSelectedSubjectName}
-                                            onChange={e => {
-                                                setBatchMoveSelectedSubjectName(e.target.value);
-                                                setBatchMoveSelectedTitle('');
-                                                setBatchMoveTargetExamId('');
-                                            }}
-                                        >
-                                            <option value="">과목을 선택하세요</option>
-                                            {uniqueSubjects.map(sub => (
-                                                <option key={sub} value={sub}>{sub}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Logic to extract unique titles based on selected subject */}
+                            {/* ⭐ Filter by subjectId instead of subjectName for accuracy */}
                             {(() => {
-                                const filteredBySubject = batchMoveTargetExams.filter(e => (e.subjectName || '미분류') === batchMoveSelectedSubjectName);
+                                // Find the selected subject's ID
+                                const selectedSubject = batchMoveTargetSubjects.find(s => s.name === batchMoveSelectedSubjectName);
+                                const selectedSubjectId = selectedSubject?.id;
+
+                                // Filter exams by subjectId (more accurate than name matching)
+                                const filteredBySubject = batchMoveTargetExams.filter(e => {
+                                    // Match by subjectId if available, otherwise fall back to name comparison
+                                    if (selectedSubjectId) {
+                                        return e.subjectId === selectedSubjectId;
+                                    }
+                                    // Fallback for legacy data without subjectId
+                                    return (e.subjectName || '미분류') === batchMoveSelectedSubjectName;
+                                });
                                 const uniqueTitles = Array.from(new Set(filteredBySubject.map(e => e.title))).sort();
 
                                 return (
@@ -3751,12 +3843,23 @@ export const QuestionManagement = () => {
                                 );
                             })()}
 
-                            {/* Logic to show rounds (Cha-si) based on selected title */}
+                            {/* ⭐ Filter rounds by subjectId and title */}
                             {(() => {
-                                const finalCandidates = batchMoveTargetExams.filter(e =>
-                                    (e.subjectName || '미분류') === batchMoveSelectedSubjectName &&
-                                    e.title === batchMoveSelectedTitle
-                                );
+                                // Find the selected subject's ID
+                                const selectedSubject = batchMoveTargetSubjects.find(s => s.name === batchMoveSelectedSubjectName);
+                                const selectedSubjectId = selectedSubject?.id;
+
+                                const finalCandidates = batchMoveTargetExams.filter(e => {
+                                    // First filter by subjectId (or subjectName as fallback)
+                                    const subjectMatch = selectedSubjectId
+                                        ? e.subjectId === selectedSubjectId
+                                        : (e.subjectName || '미분류') === batchMoveSelectedSubjectName;
+
+                                    // Then filter by title
+                                    const titleMatch = e.title === batchMoveSelectedTitle;
+
+                                    return subjectMatch && titleMatch;
+                                });
 
                                 return (
                                     <div>
