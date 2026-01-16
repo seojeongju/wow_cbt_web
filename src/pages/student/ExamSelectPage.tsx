@@ -1,26 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Search, Filter, PlayCircle, Clock, AlertCircle, FileText, X, CheckCircle, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Search, Clock, AlertCircle, FileText, X, CheckCircle, RotateCcw } from 'lucide-react';
 import { MainLayout } from '../../layouts/MainLayout';
 import { ExamService } from '../../services/examService';
 import { AuthService } from '../../services/authService';
-import { Exam, ExamResult } from '../../types';
+import { Exam, ExamResult, User } from '../../types';
 
 export const ExamSelectPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [exams, setExams] = useState<Exam[]>([]);
-    const [allExams, setAllExams] = useState<Exam[]>([]); // Renamed from 'exams' to 'allExams'
+    // const [allExams, setAllExams] = useState<Exam[]>([]); // Removed unused state
     const [filteredExams, setFilteredExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
 
     // Filter states
-    const [selectedCourse, setSelectedCourse] = useState<string>('all');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchText, setSearchText] = useState('');
     const [selectedSubject, setSelectedSubject] = useState<string>('all');
-    const [selectedRound, setSelectedRound] = useState<string>('all-rounds');
+    const [selectedTopic, setSelectedTopic] = useState<string>('all');
+    const [selectedRound, setSelectedRound] = useState<string>('all');
     const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
 
     // URL에서 과정명 가져오기
@@ -51,7 +51,12 @@ export const ExamSelectPage = () => {
             setLoading(true);
             setError(null);
 
-            const allExams = await ExamService.getExamList();
+            const [allExamsList, historyData] = await Promise.all([
+                ExamService.getExamList(),
+                ExamService.getExamHistory()
+            ]);
+
+            setExamHistory(historyData);
 
             if (!user) {
                 setExams([]);
@@ -68,7 +73,7 @@ export const ExamSelectPage = () => {
             const activeNames = activeEnrollments.map(e => e.courseName);
             const activeIds = activeEnrollments.map(e => e.courseId);
 
-            let filteredByEnrollment = allExams.filter(exam => {
+            let filteredByEnrollment = allExamsList.filter(exam => {
                 const examCourse = (exam.courseName || '').trim();
                 const matchesName = activeNames.includes(examCourse);
                 const matchesId = activeIds.includes(examCourse);
@@ -131,6 +136,23 @@ export const ExamSelectPage = () => {
         setSelectedTopic('all');
         setSelectedRound('all');
         setSearchText('');
+    };
+
+    const getExamStatus = (examId: string) => {
+        const results = examHistory.filter(r => r.examId === examId);
+        if (results.length === 0) return null;
+
+        // Find best score
+        const bestResult = results.reduce((prev, current) => {
+            return (prev.score > current.score) ? prev : current;
+        });
+
+        return {
+            taken: true,
+            passed: bestResult.passed,
+            score: bestResult.score,
+            count: results.length
+        };
     };
 
     // Get unique values for filters
