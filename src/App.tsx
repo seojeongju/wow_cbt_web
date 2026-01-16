@@ -25,6 +25,7 @@ import { ExamPlayer } from './pages/exam/ExamPlayer';
 import { WrongAnswerNote } from './pages/student/WrongAnswerNote';
 import { PracticeMode } from './pages/practice/PracticeMode';
 import { StudentAnalyticsPage } from './pages/student/StudentAnalyticsPage';
+import { StudentProfilePage } from './pages/student/StudentProfilePage';
 
 // Layout & Auth
 import { AdminLayout } from './layouts/AdminLayout';
@@ -63,6 +64,7 @@ function App() {
           <Route path="/student/practice" element={<PracticeMode />} />
           <Route path="/student/review" element={<WrongAnswerNote />} />
           <Route path="/student/analytics" element={<StudentAnalyticsPage />} />
+          <Route path="/student/profile" element={<StudentProfilePage />} />
           <Route path="/exam/:examId" element={<ExamPlayer />} />
         </Route>
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     Play, BookOpen, AlertCircle, PlusCircle, X,
-    Trophy, Target, BarChart2, Clock, CheckCircle, GraduationCap, LayoutDashboard, ChevronRight, Award, Home
+    Trophy, Target, BarChart2, Clock, CheckCircle, GraduationCap, LayoutDashboard, ChevronRight, Award, Home, User as UserIcon
 } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
 import { AuthService } from '../../services/authService';
@@ -85,17 +85,17 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
                 disabled={disabled}
                 style={{
                     background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%)',
-                    padding: '1.75rem', 
-                    borderRadius: '1.5rem', 
+                    padding: '1.75rem',
+                    borderRadius: '1.5rem',
                     border: 'none',
-                    textAlign: 'left', 
+                    textAlign: 'left',
                     cursor: disabled ? 'not-allowed' : 'pointer',
                     boxShadow: '0 20px 40px -10px rgba(79, 70, 229, 0.4), 0 0 0 3px rgba(99, 102, 241, 0.1)',
-                    display: 'flex', 
+                    display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'start', 
-                    gap: '1rem', 
-                    width: '100%', 
+                    alignItems: 'start',
+                    gap: '1rem',
+                    width: '100%',
                     position: 'relative',
                     overflow: 'hidden',
                     opacity: disabled ? 0.6 : 1,
@@ -113,10 +113,10 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
                     background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)',
                     borderRadius: '50%'
                 }} />
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', width: '100%', position: 'relative', zIndex: 1 }}>
-                    <motion.div 
-                        animate={{ 
+                    <motion.div
+                        animate={{
                             scale: [1, 1.1, 1],
                             boxShadow: [
                                 '0 0 0 0 rgba(255,255,255,0.4)',
@@ -124,19 +124,19 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
                                 '0 0 0 0 rgba(255,255,255,0)'
                             ]
                         }}
-                        transition={{ 
+                        transition={{
                             duration: 2,
                             repeat: Infinity,
                             ease: "easeInOut"
                         }}
                         style={{
-                            minWidth: '56px', 
-                            height: '56px', 
-                            borderRadius: '1.25rem', 
+                            minWidth: '56px',
+                            height: '56px',
+                            borderRadius: '1.25rem',
                             background: 'rgba(255,255,255,0.25)',
                             backdropFilter: 'blur(10px)',
-                            display: 'flex', 
-                            alignItems: 'center', 
+                            display: 'flex',
+                            alignItems: 'center',
                             justifyContent: 'center',
                             border: '2px solid rgba(255,255,255,0.3)'
                         }}
@@ -149,11 +149,11 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
                                 {title}
                             </h4>
                             {badge && (
-                                <span style={{ 
-                                    fontSize: '0.7rem', 
-                                    background: 'rgba(255,255,255,0.3)', 
-                                    color: 'white', 
-                                    padding: '0.25rem 0.7rem', 
+                                <span style={{
+                                    fontSize: '0.7rem',
+                                    background: 'rgba(255,255,255,0.3)',
+                                    color: 'white',
+                                    padding: '0.25rem 0.7rem',
                                     borderRadius: '0.875rem',
                                     fontWeight: 600,
                                     backdropFilter: 'blur(10px)'
@@ -167,7 +167,7 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
                         </p>
                     </div>
                 </div>
-                
+
                 {/* CTA 버튼 */}
                 <motion.div
                     whileHover={{ scale: 1.05 }}
@@ -193,7 +193,7 @@ const ActionCard = ({ title, desc, icon, color, onClick, disabled, badge, isPrim
             </motion.button>
         );
     }
-    
+
     // 일반 카드 스타일
     return (
         <motion.button
@@ -356,9 +356,9 @@ export const StudentDashboard = () => {
         setSelectedCourse(courseName);
         // 학습 도구 섹션으로 스크롤
         setTimeout(() => {
-            learningToolsRef.current?.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
+            learningToolsRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
             });
         }, 100);
     };
@@ -372,19 +372,19 @@ export const StudentDashboard = () => {
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Pretendard', sans-serif" }}>
             {/* 1. Header (Simple) */}
             <header style={{ background: 'white', padding: isMobile ? '0.75rem 0' : '1rem 0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                <div className="container" style={{ 
+                <div className="container" style={{
                     padding: isMobile ? '0 1rem' : '0 1.5rem',
-                    display: 'flex', 
+                    display: 'flex',
                     flexDirection: isMobile ? 'column' : 'row',
-                    justifyContent: 'space-between', 
+                    justifyContent: 'space-between',
                     alignItems: isMobile ? 'stretch' : 'center',
                     gap: isMobile ? '0.75rem' : '0'
                 }}>
                     {/* Logo Section */}
-                    <div onClick={() => navigate('/')} style={{ 
-                        cursor: 'pointer', 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <div onClick={() => navigate('/')} style={{
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: '0.5rem',
                         flexShrink: 0
                     }}>
@@ -393,11 +393,11 @@ export const StudentDashboard = () => {
                             {isMobile ? 'WOW3D' : 'WOW3D'}<span style={{ color: '#6366f1' }}>-CBT</span>
                         </span>
                     </div>
-                    
+
                     {/* User Info & Actions */}
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
                         justifyContent: isMobile ? 'space-between' : 'flex-end',
                         gap: isMobile ? '0.5rem' : '1rem',
                         flexWrap: 'wrap'
@@ -409,31 +409,31 @@ export const StudentDashboard = () => {
                                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.email}</div>
                             </div>
                         )}
-                        
+
                         {/* 모바일: 사용자 이름만 표시 */}
                         {isMobile && (
                             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>
                                 {user.name}님
                             </div>
                         )}
-                        
+
                         {/* Action Buttons */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem', flexShrink: 0 }}>
                             {!isMobile && (
                                 <>
                                     <button
                                         onClick={() => navigate('/')}
-                                        style={{ 
-                                            padding: '0.5rem 1rem', 
-                                            background: 'transparent', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '0.5rem', 
-                                            fontSize: '0.85rem', 
-                                            fontWeight: 600, 
-                                            color: '#475569', 
-                                            cursor: 'pointer', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600,
+                                            color: '#475569',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
                                             gap: '0.4rem'
                                         }}
                                     >
@@ -441,35 +441,53 @@ export const StudentDashboard = () => {
                                     </button>
                                     <button
                                         onClick={() => navigate('/student/support')}
-                                        style={{ 
-                                            padding: '0.5rem 1rem', 
-                                            background: 'transparent', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '0.5rem', 
-                                            fontSize: '0.85rem', 
-                                            fontWeight: 600, 
-                                            color: '#475569', 
-                                            cursor: 'pointer', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600,
+                                            color: '#475569',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
                                             gap: '0.4rem'
                                         }}
                                     >
                                         <AlertCircle size={16} /> 1:1 문의
                                     </button>
+                                    <button
+                                        onClick={() => navigate('/student/profile')}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600,
+                                            color: '#475569',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem'
+                                        }}
+                                    >
+                                        <UserIcon size={16} /> 내 정보
+                                    </button>
                                 </>
                             )}
-                            
+
                             {/* 모바일: 아이콘만 표시 */}
                             {isMobile && (
                                 <>
                                     <button
                                         onClick={() => navigate('/')}
-                                        style={{ 
-                                            padding: '0.5rem', 
-                                            background: 'transparent', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '0.5rem', 
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
                                             cursor: 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -481,11 +499,11 @@ export const StudentDashboard = () => {
                                     </button>
                                     <button
                                         onClick={() => navigate('/student/support')}
-                                        style={{ 
-                                            padding: '0.5rem', 
-                                            background: 'transparent', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '0.5rem', 
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
                                             cursor: 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -495,19 +513,35 @@ export const StudentDashboard = () => {
                                     >
                                         <AlertCircle size={18} color="#475569" />
                                     </button>
+                                    <button
+                                        onClick={() => navigate('/student/profile')}
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                        title="내 정보"
+                                    >
+                                        <UserIcon size={18} color="#475569" />
+                                    </button>
                                 </>
                             )}
-                            
+
                             <button
                                 onClick={() => AuthService.logout()}
-                                style={{ 
-                                    padding: isMobile ? '0.5rem 0.75rem' : '0.5rem 1rem', 
-                                    background: '#f1f5f9', 
-                                    border: 'none', 
-                                    borderRadius: '0.5rem', 
-                                    fontSize: isMobile ? '0.75rem' : '0.85rem', 
-                                    fontWeight: 600, 
-                                    color: '#475569', 
+                                style={{
+                                    padding: isMobile ? '0.5rem 0.75rem' : '0.5rem 1rem',
+                                    background: '#f1f5f9',
+                                    border: 'none',
+                                    borderRadius: '0.5rem',
+                                    fontSize: isMobile ? '0.75rem' : '0.85rem',
+                                    fontWeight: 600,
+                                    color: '#475569',
                                     cursor: 'pointer',
                                     whiteSpace: 'nowrap'
                                 }}
@@ -633,7 +667,7 @@ export const StudentDashboard = () => {
                                 onClick={() => navigate(`/student/exam?course=${encodeURIComponent(selectedCourse)}`)}
                                 isPrimary={true}
                             />
-                            
+
                             {/* 오답 노트 & 성적 분석 - 나란히 배치 */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                                 <ActionCard
