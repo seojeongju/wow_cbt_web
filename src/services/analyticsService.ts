@@ -1,4 +1,4 @@
-import { ExamResult } from '../types';
+import { ExamResult, User, Question } from '../types';
 
 export interface OverviewStats {
     totalStudents: number;
@@ -24,7 +24,7 @@ export interface CategoryStat {
     name: string;
     score: number;
     count: number;
-    wrongCount?: number;
+    wrongCount: number;
 }
 
 export interface StudentStat {
@@ -37,8 +37,28 @@ export interface StudentStat {
 
 export interface WeeklyTrend {
     date: string;
-    exams: number;
+    count: number;
 }
+
+let _cache: Promise<{ users: User[], results: any[], questions: any[] }> | null = null;
+
+const getSharedData = () => {
+    if (!_cache) {
+        _cache = Promise.all([
+            fetch('/api/users').then(res => res.json()),
+            fetch('/api/exam-results').then(res => res.json()),
+            fetch('/api/questions').then(res => res.json())
+        ]).then(([usersRes, resultsRes, questionsRes]) => ({
+            users: usersRes.users || [],
+            results: resultsRes.results || [],
+            questions: questionsRes.questions || []
+        })).catch(err => {
+            console.error("Failed to fetch shared analytics data", err);
+            return { users: [], results: [], questions: [] };
+        });
+    }
+    return _cache;
+};
 
 export const AnalyticsService = {
     // Get all global exam history from API
@@ -62,22 +82,9 @@ export const AnalyticsService = {
         } catch { return []; }
     },
 
-    // In a real D1 implementation, these aggregations should be done on the server side (SQL GROUP BY)
-    // For MVP transition, we'll fetch full data and aggregate on client if API lacks specific endpoints,
-    // OR ideally implement /api/analytics endpoints.
-
-    // For now, let's keep client-side aggregation but fetch data from D1 via existing endpoints.
-    // In future steps, we should add /api/analytics/overview, etc.
-
     getOverviewStats: async (): Promise<OverviewStats> => {
-        // Fetch users and results to calculate stats
-        // This is inefficient but works for MVP without new backend endpoints.
         try {
-            const usersRes = await (await fetch('/api/users')).json();
-            const resultsRes = await (await fetch('/api/exam-results')).json();
-
-            const users = usersRes.users || [];
-            const results = resultsRes.results || [];
+            const { users, results, questions } = await getSharedData();
 
             const totalStudents = users.length;
             const totalExams = results.length;
@@ -100,7 +107,7 @@ export const AnalyticsService = {
 
             return {
                 totalStudents,
-                totalQuestions: 0, // Not easily available without another query, skip
+                totalQuestions: questions.length,
                 avgPassRate: passRate,
                 totalExams,
                 avgScore,
@@ -119,12 +126,119 @@ export const AnalyticsService = {
         }
     },
 
-    // Placeholder implementations for charts until we add SQL endpoints
-    getCoursePerformance: async (): Promise<CourseStat[]> => { return []; },
-    getCategoryPerformance: async (): Promise<CategoryStat[]> => { return []; },
-    getStudentPerformance: async (): Promise<{ topPerformers: StudentStat[], atRiskStudents: StudentStat[] }> => {
-        return { topPerformers: [], atRiskStudents: [] };
+    getCoursePerformance: async (): Promise<CourseStat[]> => {
+        const { results } = await getSharedData();
+        const courses = new Map<string, { totalScore: number, count: number, students: Set<string> }>();
+
+        results.forEach(r => {
+            const name = r.course_name || 'Unknown';
+            const current = courses.get(name) || { totalScore: 0, count: 0, students: new Set() };
+            current.totalScore += r.score;
+            current.count += 1;
+            if (r.user_id) current.students.add(r.user_id);
+            courses.set(name, current);
+        });
+
+        return Array.from(courses.entries()).map(([name, stats]) => ({
+            name,
+            avgScore: Math.round(stats.totalScore / stats.count),
+            studentCount: stats.students.size
+        }));
     },
-    getWeeklyTrend: async (): Promise<WeeklyTrend[]> => { return []; }
+
+    getCategoryPerformance: async (): Promise<CategoryStat[]> => {
+        const { results, questions } = await getSharedData();
+        const questionMap = new Map(questions.map((q: any) => [q.id, q]));
+        const categoryStats = new Map<string, { correct: number, wrong: number }>();
+
+        results.forEach(r => {
+            const answers = typeof r.answers === 'string' ? JSON.parse(r.answers) : r.answers;
+            if (!answers) return;
+
+            Object.entries(answers).forEach(([qId, answerIdx]) => {
+                const question = questionMap.get(qId);
+                if (!question || !question.category) return;
+
+                const catStats = categoryStats.get(question.category) || { correct: 0, wrong: 0 };
+                // Assuming answerIdx matches correct_answer. Note: correct_answer might be index or string.
+                // We need to compare loosely or strictly depending on backend.
+                // Usually correct_answer is 0-3.
+                const isCorrect = String(answerIdx) === String(question.correct_answer);
+
+                if (isCorrect) catStats.correct++;
+                else catStats.wrong++;
+
+                categoryStats.set(question.category, catStats);
+            });
+        });
+
+        return Array.from(categoryStats.entries()).map(([name, stats]) => {
+            const total = stats.correct + stats.wrong;
+            return {
+                name,
+                wrongCount: stats.wrong,
+                count: total,
+                score: total > 0 ? Math.round((stats.correct / total) * 100) : 0
+            };
+        }).sort((a, b) => b.wrongCount - a.wrongCount);
+    },
+
+    getStudentPerformance: async (): Promise<{ topPerformers: StudentStat[], atRiskStudents: StudentStat[] }> => {
+        const { users, results } = await getSharedData();
+        const userMap = new Map<string, User>(users.map((u: any) => [u.id, u]));
+        const stats = new Map<string, { totalScore: number, count: number, lastActive: string }>();
+
+        results.forEach(r => {
+            if (!r.user_id) return;
+            const current = stats.get(r.user_id) || { totalScore: 0, count: 0, lastActive: r.created_at };
+            current.totalScore += r.score;
+            current.count += 1;
+            if (new Date(r.created_at) > new Date(current.lastActive)) {
+                current.lastActive = r.created_at;
+            }
+            stats.set(r.user_id, current);
+        });
+
+        const studentStats: StudentStat[] = Array.from(stats.entries()).map(([userId, data]) => {
+            const user = userMap.get(userId);
+            return {
+                id: userId,
+                name: user ? user.name : 'Unknown',
+                examCount: data.count,
+                avgScore: Math.round(data.totalScore / data.count),
+                lastActive: data.lastActive
+            };
+        });
+
+        const topPerformers = [...studentStats].sort((a, b) => b.avgScore - a.avgScore).slice(0, 5);
+        const atRiskStudents = studentStats.filter(s => s.avgScore < 60 || s.examCount < 2); // Example criteria
+
+        return { topPerformers, atRiskStudents };
+    },
+
+    getWeeklyTrend: async (): Promise<WeeklyTrend[]> => {
+        const { results } = await getSharedData();
+        const dailyCounts = new Map<string, number>();
+
+        // Initialize last 7 days with 0
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0];
+            dailyCounts.set(key, 0);
+        }
+
+        results.forEach(r => {
+            const dateStr = new Date(r.created_at).toISOString().split('T')[0];
+            if (dailyCounts.has(dateStr)) {
+                dailyCounts.set(dateStr, (dailyCounts.get(dateStr) || 0) + 1);
+            }
+        });
+
+        return Array.from(dailyCounts.entries()).map(([date, count]) => ({
+            date: date.substring(5), // MM-DD format
+            count
+        }));
+    }
 };
 
