@@ -1,4 +1,4 @@
-import { ExamResult, User, Question } from '../types';
+import { ExamResult, User } from '../types';
 
 export interface OverviewStats {
     totalStudents: number;
