@@ -25,8 +25,8 @@ export interface Exam {
     // 🆕 Advanced grading criteria
     averagePassScore?: number | null; // 평균 합격 점수 (null이면 사용 안 함)
     useAverageScore?: boolean; // 평균 점수 기준 사용 여부
-    subjectMinScores?: { [subjectId: string]: number }; // 과목별 최소 점수
-    useSubjectMinScore?: boolean; // 과목별 과락 사용 여부
+    categoryMinScores?: { [category: string]: number }; // 🔄 카테고리별 최소 점수
+    useCategoryMinScore?: boolean; // 🔄 카테고리별 과락 사용 여부
     questions: Question[];
     questionsCount?: number;
 }
@@ -86,7 +86,7 @@ export interface ExamResult {
     answers?: { [key: string]: number | string }; // Optional for history detail
     status?: 'completed';
     // 🆕 Advanced grading results
-    subjectScores?: { [subjectId: string]: number }; // 과목별 점수 (100점 만점)
+    categoryScores?: { [category: string]: number }; // 🔄 카테고리별 점수 (100점 만점)
     averageScore?: number; // 평균 점수
     failReasons?: string[]; // 불합격 사유
 }

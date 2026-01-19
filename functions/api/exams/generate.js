@@ -13,11 +13,11 @@ export async function onRequestPost(context) {
             questionIds,
             mode,
             randomOptions,
-            // 🆕 Advanced grading criteria
+            // 🔄 Advanced grading criteria
             averagePassScore,
             useAverageScore,
-            subjectMinScores,
-            useSubjectMinScore
+            categoryMinScores,
+            useCategoryMinScore
         } = await request.json();
 
         if (!title || !courseId || !questionIds || questionIds.length === 0) {
@@ -36,7 +36,7 @@ export async function onRequestPost(context) {
         await env.DB.prepare(`
             INSERT INTO exams (
                 id, title, course_id, subject_id, description, time_limit, pass_score, 
-                topic, round, average_pass_score, use_average_score, subject_min_scores, use_subject_min_score
+                topic, round, average_pass_score, use_average_score, category_min_scores, use_category_min_score
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
@@ -51,8 +51,8 @@ export async function onRequestPost(context) {
             null, // round
             averagePassScore || null,
             useAverageScore ? 1 : 0,
-            subjectMinScores ? JSON.stringify(subjectMinScores) : null,
-            useSubjectMinScore ? 1 : 0
+            categoryMinScores ? JSON.stringify(categoryMinScores) : null,
+            useCategoryMinScore ? 1 : 0
         ).run();
 
         // Link questions to exam

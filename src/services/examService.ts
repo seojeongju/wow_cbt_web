@@ -429,11 +429,11 @@ export const ExamService = {
             distributionType: 'random' | 'equal' | 'custom';
             categoryQuestions?: { [category: string]: number };
         };
-        // 🆕 Advanced grading criteria
+        // 🔄 Advanced grading criteria
         averagePassScore?: number | null;
         useAverageScore?: boolean;
-        subjectMinScores?: { [subjectId: string]: number };
-        useSubjectMinScore?: boolean;
+        categoryMinScores?: { [category: string]: number };
+        useCategoryMinScore?: boolean;
     }): Promise<{ success: boolean; examId?: string; message?: string }> => {
         try {
             const response = await fetch('/api/exams/generate', {

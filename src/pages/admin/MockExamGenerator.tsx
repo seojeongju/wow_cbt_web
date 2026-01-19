@@ -51,8 +51,8 @@ export const MockExamGenerator = () => {
         // 🆕 Advanced grading criteria
         averagePassScore: null as number | null,
         useAverageScore: false,
-        subjectMinScores: {} as { [subjectId: string]: number },
-        useSubjectMinScore: false
+        categoryMinScores: {} as { [category: string]: number }, // 🔄 카테고리별 최소 점수
+        useCategoryMinScore: false // 🔄 카테고리별 과락 사용 여부
     });
 
     // Step 4: 미리보기
@@ -305,8 +305,8 @@ export const MockExamGenerator = () => {
                 // 🆕 Advanced grading criteria
                 averagePassScore: examSettings.useAverageScore ? examSettings.averagePassScore : undefined,
                 useAverageScore: examSettings.useAverageScore,
-                subjectMinScores: examSettings.useSubjectMinScore ? examSettings.subjectMinScores : undefined,
-                useSubjectMinScore: examSettings.useSubjectMinScore
+                categoryMinScores: examSettings.useCategoryMinScore ? examSettings.categoryMinScores : undefined,
+                useCategoryMinScore: examSettings.useCategoryMinScore
             });
 
             if (result.success && result.examId) {
@@ -327,32 +327,30 @@ export const MockExamGenerator = () => {
         return selectedQuestionsOrder.filter(q => q.category === category).length;
     };
 
-    // 🆕 과목별 문제 분류 헬퍼 함수
-    const getSubjectDistribution = () => {
-        const distribution: { [subjectId: string]: { name: string; questions: Question[]; count: number } } = {};
+    // 🔄 카테고리별 문제 분류 헬퍼 함수
+    const getCategoryDistribution = () => {
+        const distribution: { [category: string]: { name: string; questions: Question[]; count: number } } = {};
 
         selectedQuestionsOrder.forEach(question => {
-            // subjectId가 있으면 사용, 없으면 'general' 사용
-            const sid = question.subjectId || selectedSubjectId || 'general';
-            const subjectName = subjects.find(s => s.id === sid)?.name || '일반';
+            const cat = question.category || '일반';
 
-            if (!distribution[sid]) {
-                distribution[sid] = {
-                    name: subjectName,
+            if (!distribution[cat]) {
+                distribution[cat] = {
+                    name: cat,
                     questions: [],
                     count: 0
                 };
             }
 
-            distribution[sid].questions.push(question);
-            distribution[sid].count++;
+            distribution[cat].questions.push(question);
+            distribution[cat].count++;
         });
 
         return distribution;
     };
 
-    // 🆕 과목별 기본 과락 점수 자동 계산 (40% 기준)
-    const getDefaultSubjectMinScore = () => {
+    // 🔄 카테고리별 기본 과락 점수 자동 계산 (40% 기준)
+    const getDefaultCategoryMinScore = () => {
         return 40; // 100점 만점 기준 40점
     };
 
@@ -1275,7 +1273,7 @@ export const MockExamGenerator = () => {
                             )}
                         </div>
 
-                        {/* 🆕 과목별 과락 설정 */}
+                        {/* 🔄 카테고리별 과락 설정 */}
                         <div style={{
                             padding: '1.5rem',
                             background: '#f8fafc',
@@ -1293,39 +1291,39 @@ export const MockExamGenerator = () => {
                                 }}>
                                     <input
                                         type="checkbox"
-                                        checked={examSettings.useSubjectMinScore}
+                                        checked={examSettings.useCategoryMinScore}
                                         onChange={(e) => {
                                             const isChecked = e.target.checked;
-                                            const distribution = getSubjectDistribution();
+                                            const distribution = getCategoryDistribution();
                                             const defaultScores: { [key: string]: number } = {};
 
                                             if (isChecked) {
-                                                Object.keys(distribution).forEach(subjectId => {
-                                                    defaultScores[subjectId] = getDefaultSubjectMinScore();
+                                                Object.keys(distribution).forEach(category => {
+                                                    defaultScores[category] = getDefaultCategoryMinScore();
                                                 });
                                             }
 
                                             setExamSettings({
                                                 ...examSettings,
-                                                useSubjectMinScore: isChecked,
-                                                subjectMinScores: isChecked ? defaultScores : {}
+                                                useCategoryMinScore: isChecked,
+                                                categoryMinScores: isChecked ? defaultScores : {}
                                             });
                                         }}
                                         style={{ width: '1.125rem', height: '1.125rem', cursor: 'pointer' }}
                                     />
-                                    과목별 과락 기준 사용
+                                    카테고리별 과락 기준 사용
                                 </label>
                                 <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', marginLeft: '1.625rem' }}>
-                                    각 과목별로 최소 득점 기준을 설정할 수 있습니다
+                                    각 카테고리별로 최소 득점 기준을 설정할 수 있습니다
                                 </p>
                             </div>
 
-                            {examSettings.useSubjectMinScore && (() => {
-                                const distribution = getSubjectDistribution();
+                            {examSettings.useCategoryMinScore && (() => {
+                                const distribution = getCategoryDistribution();
                                 return (
                                     <div style={{ marginLeft: '1.625rem', display: 'grid', gap: '1rem' }}>
-                                        {Object.entries(distribution).map(([subjectId, data]) => (
-                                            <div key={subjectId} style={{
+                                        {Object.entries(distribution).map(([category, data]) => (
+                                            <div key={category} style={{
                                                 padding: '1rem',
                                                 background: 'white',
                                                 borderRadius: '0.5rem',
@@ -1348,12 +1346,12 @@ export const MockExamGenerator = () => {
                                                             type="number"
                                                             min="0"
                                                             max="100"
-                                                            value={examSettings.subjectMinScores[subjectId] || 40}
+                                                            value={examSettings.categoryMinScores[category] || 40}
                                                             onChange={(e) => setExamSettings({
                                                                 ...examSettings,
-                                                                subjectMinScores: {
-                                                                    ...examSettings.subjectMinScores,
-                                                                    [subjectId]: parseInt(e.target.value) || 0
+                                                                categoryMinScores: {
+                                                                    ...examSettings.categoryMinScores,
+                                                                    [category]: parseInt(e.target.value) || 0
                                                                 }
                                                             })}
                                                             style={{
