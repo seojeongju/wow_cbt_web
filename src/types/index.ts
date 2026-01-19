@@ -16,9 +16,9 @@ export interface Exam {
     courseName?: string;
     courseId?: string;
     subjectName?: string;
-    subjectId?: string;
-    topic?: string; // 소분류 (챕터, 주제 등)
-    round?: string; // 차시
+    subjectId?: string | null;
+    topic?: string | null; // 소분류 (챕터, 주제 등)
+    round?: string | null; // 차시
     description?: string;
     timeLimit: number; // in minutes
     passScore?: number;

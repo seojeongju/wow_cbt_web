@@ -45,10 +45,10 @@ export const QuestionManagement = () => {
         title: string;
         course: string;
         courseId?: string;
-        subjectId?: string;
+        subjectId?: string | null;
         subjectName?: string;
-        topic?: string;
-        round?: string;
+        topic?: string | null;
+        round?: string | null;
         questionsCount?: number; // ⭐️ Added for deletion check
     }[]>([]);
 
