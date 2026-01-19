@@ -871,21 +871,37 @@ export const QuestionManagement = () => {
     const handleUpdateExam = async () => {
         if (!editExamData.title.trim()) return alert('제목을 입력해주세요.');
 
-        // Find Subject ID if name changed or exists
-        let subjectIdToUse = undefined;
-        if (editExamData.subjectName) {
-            const currentExam = exams.find(e => e.id === selectedExamId);
-            if (currentExam && currentExam.courseId) {
-                const subjects = await SubjectService.getSubjects(currentExam.courseId);
-                const sub = subjects.find(s => s.name === editExamData.subjectName);
-                if (sub) {
-                    subjectIdToUse = sub.id;
-                } else {
-                    const newSub = await SubjectService.addSubject(currentExam.courseId, editExamData.subjectName);
-                    if (newSub.success && newSub.id) subjectIdToUse = newSub.id;
+        const currentExam = exams.find(e => e.id === selectedExamId);
+        if (!currentExam) return;
+
+        // Find Subject ID logic
+        let subjectIdToUse: string | null | undefined = undefined;
+
+        // Check if subject name has changed strictly
+        const currentSubjectName = currentExam.subjectName || '';
+        const newSubjectName = editExamData.subjectName || '';
+
+        if (newSubjectName !== currentSubjectName) {
+            // Subject has changed
+            if (!newSubjectName.trim()) {
+                // Cleared -> Set to null to remove from DB
+                subjectIdToUse = null;
+            } else {
+                // Changed to a text -> Find ID or Create
+                if (currentExam.courseId) {
+                    const subjects = await SubjectService.getSubjects(currentExam.courseId);
+                    const sub = subjects.find(s => s.name === newSubjectName);
+                    if (sub) {
+                        subjectIdToUse = sub.id;
+                    } else {
+                        // Auto-create new subject if not found
+                        const newSub = await SubjectService.addSubject(currentExam.courseId, newSubjectName);
+                        if (newSub.success && newSub.id) subjectIdToUse = newSub.id;
+                    }
                 }
             }
         }
+        // If name hasn't changed, subjectIdToUse remains undefined (no update sent)
 
         const result = await ExamService.updateExam(editExamData.id, {
             title: editExamData.title,
@@ -1960,6 +1976,7 @@ export const QuestionManagement = () => {
                                             style={{ height: '42px' }}
                                         >
                                             <option value="">과목을 선택하세요</option>
+                                            <option value="ALL_EXAMS" style={{ fontWeight: 'bold', color: 'var(--primary-600)' }}>📁 전체 시험지 보기</option>
                                             {subjects.map(sub => (
                                                 <option key={sub.id} value={sub.name}>{sub.name}</option>
                                             ))}
@@ -1974,6 +1991,8 @@ export const QuestionManagement = () => {
 
                                         // Filter by subjectId for accuracy
                                         const filteredBySubject = availableExams.filter(e => {
+                                            if (mainSelectedSubjectName === 'ALL_EXAMS') return true;
+
                                             if (selectedSubjectId) {
                                                 return e.subjectId === selectedSubjectId;
                                             }
@@ -2011,9 +2030,11 @@ export const QuestionManagement = () => {
 
                                         const finalCandidates = availableExams.filter(e => {
                                             // Match by subjectId
-                                            const subjectMatch = selectedSubjectId
-                                                ? e.subjectId === selectedSubjectId
-                                                : (e.subjectName || '미분류') === mainSelectedSubjectName;
+                                            const subjectMatch = (mainSelectedSubjectName === 'ALL_EXAMS')
+                                                ? true
+                                                : selectedSubjectId
+                                                    ? e.subjectId === selectedSubjectId
+                                                    : (e.subjectName || '미분류') === mainSelectedSubjectName;
 
                                             const titleMatch = e.title === mainSelectedTitle;
 
@@ -3119,13 +3140,35 @@ export const QuestionManagement = () => {
 
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
-                                    소분류 (시험지 제목) *
+                                    시험지 제목 *
                                 </label>
                                 <input
                                     type="text"
                                     value={newExamData.title}
                                     onChange={(e) => setNewExamData({ ...newExamData, title: e.target.value })}
                                     placeholder="예: 2024년 1회차 정기시험"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem',
+                                        border: '2px solid #e2e8f0',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '1rem',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#475569' }}>
+                                    소분류 (Topic)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newExamData.topic || ''}
+                                    onChange={(e) => setNewExamData({ ...newExamData, topic: e.target.value })}
+                                    placeholder="예: 집합과 명제 (선택사항)"
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem 1rem',
@@ -3689,8 +3732,13 @@ export const QuestionManagement = () => {
                             </div>
 
                             <div style={{ marginBottom: '1rem' }}>
-                                <label className="input-label">소분류 (시험지 제목)</label>
+                                <label className="input-label">시험지 제목</label>
                                 <input className="input-field" value={editExamData.title} onChange={e => setEditExamData({ ...editExamData, title: e.target.value })} />
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label className="input-label">소분류 (Topic)</label>
+                                <input className="input-field" value={editExamData.topic || ''} onChange={e => setEditExamData({ ...editExamData, topic: e.target.value })} placeholder="예: 집합과 명제" />
                             </div>
 
                             <div style={{ marginBottom: '1rem' }}>
