@@ -23,6 +23,20 @@
 - **배포 URL**: [https://wow-cbt-webmain.pages.dev/admin/mock-exam](https://wow-cbt-webmain.pages.dev/admin/mock-exam)
 - **GitHub 저장소**: [https://github.com/seojeongju/wow_cbt_web](https://github.com/seojeongju/wow_cbt_web) (메인 브랜치: `main`)
 
+
+**작성일시**: 2026-01-19
+
+## ✅ 금일 구현 내역 (Completed Tasks)
+### 1. 모의고사 카테고리별 문제 정렬 기능 구현
+- **경로**: `admin/mock-exam`, `functions/api/exams`
+- **내용**:
+  - 모의고사 생성 시('미리보기' 단계 전), 선택된 문제들이 카테고리 이름순으로 자동 정렬되도록 로직 추가 (`MockExamGenerator.tsx`)
+  - 학생이 시험 응시 시(`ExamPlayer`), 문제들이 카테고리순으로 먼저 정렬되고 그 후 생성일순으로 정렬되도록 백엔드 쿼리 수정 (`[id].js`)
+  - 이를 통해 출제자와 응시자 모두에게 일관된 카테고리별 문제 구성을 제공
+
+## 📦 배포 및 저장소 정보 (Deployment & Repository)
+- **배포 URL**: [https://wow-cbt-webmain.pages.dev](https://wow-cbt-webmain.pages.dev)
+- **GitHub 저장소**: [https://github.com/seojeongju/wow_cbt_web](https://github.com/seojeongju/wow_cbt_web)
+
 ## 📝 다음 작업 계획 (Next Steps)
-1. **기능 테스트**: 배포된 페이지에서 실제 '카테고리별 문항수 지정' 기능이 정상 작동하는지 확인
-2. **피드백 반영**: 테스트 후 수정이 필요한 부분이 있다면 보완
+1. **모니터링**: 배포 후 정렬 기능이 정상적으로 작동하는지 확인

@@ -29,7 +29,7 @@ export async function onRequestGet(context) {
         const { results: questions } = await env.DB.prepare(`
             SELECT * FROM questions 
             WHERE exam_id = ? 
-            ORDER BY created_at ASC
+            ORDER BY category ASC, created_at ASC
         `).bind(examId).all();
 
         // Parse JSON fields

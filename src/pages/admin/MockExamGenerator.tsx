@@ -264,6 +264,14 @@ export const MockExamGenerator = () => {
         }
 
         const selected = allQuestions.filter(q => finalSelectedIds.has(q.id));
+
+        // 🔄 카테고리별 정렬
+        selected.sort((a, b) => {
+            const catA = a.category || '';
+            const catB = b.category || '';
+            return catA.localeCompare(catB);
+        });
+
         if (selected.length === 0) {
             alert('선택된 문제가 없습니다.');
             return;
