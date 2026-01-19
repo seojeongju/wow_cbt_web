@@ -47,7 +47,12 @@ export const MockExamGenerator = () => {
         passScore: 60,
         description: '',
         courseId: '',
-        subjectId: ''
+        subjectId: '',
+        // 🆕 Advanced grading criteria
+        averagePassScore: null as number | null,
+        useAverageScore: false,
+        subjectMinScores: {} as { [subjectId: string]: number },
+        useSubjectMinScore: false
     });
 
     // Step 4: 미리보기
@@ -296,7 +301,12 @@ export const MockExamGenerator = () => {
                 description: examSettings.description,
                 questionIds: selectedQuestionsOrder.map(q => q.id),
                 mode: selectionMode,
-                randomOptions: selectionMode === 'random' ? randomOptions : undefined
+                randomOptions: selectionMode === 'random' ? randomOptions : undefined,
+                // 🆕 Advanced grading criteria
+                averagePassScore: examSettings.useAverageScore ? examSettings.averagePassScore : undefined,
+                useAverageScore: examSettings.useAverageScore,
+                subjectMinScores: examSettings.useSubjectMinScore ? examSettings.subjectMinScores : undefined,
+                useSubjectMinScore: examSettings.useSubjectMinScore
             });
 
             if (result.success && result.examId) {
@@ -315,6 +325,35 @@ export const MockExamGenerator = () => {
 
     const getCategoryCount = (category: string) => {
         return selectedQuestionsOrder.filter(q => q.category === category).length;
+    };
+
+    // 🆕 과목별 문제 분류 헬퍼 함수
+    const getSubjectDistribution = () => {
+        const distribution: { [subjectId: string]: { name: string; questions: Question[]; count: number } } = {};
+
+        selectedQuestionsOrder.forEach(question => {
+            // subjectId가 있으면 사용, 없으면 'general' 사용
+            const sid = question.subjectId || selectedSubjectId || 'general';
+            const subjectName = subjects.find(s => s.id === sid)?.name || '일반';
+
+            if (!distribution[sid]) {
+                distribution[sid] = {
+                    name: subjectName,
+                    questions: [],
+                    count: 0
+                };
+            }
+
+            distribution[sid].questions.push(question);
+            distribution[sid].count++;
+        });
+
+        return distribution;
+    };
+
+    // 🆕 과목별 기본 과락 점수 자동 계산 (40% 기준)
+    const getDefaultSubjectMinScore = () => {
+        return 40; // 100점 만점 기준 40점
     };
 
     return (
@@ -1154,7 +1193,7 @@ export const MockExamGenerator = () => {
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                                    합격 점수 (%)
+                                    전체 합격 점수 (%)
                                 </label>
                                 <input
                                     type="number"
@@ -1171,6 +1210,169 @@ export const MockExamGenerator = () => {
                                     }}
                                 />
                             </div>
+                        </div>
+
+                        {/* 🆕 평균 점수 기준 설정 */}
+                        <div style={{
+                            padding: '1.5rem',
+                            background: '#f8fafc',
+                            borderRadius: '0.75rem',
+                            border: '1px solid #e2e8f0'
+                        }}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    fontWeight: 600
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={examSettings.useAverageScore}
+                                        onChange={(e) => setExamSettings({
+                                            ...examSettings,
+                                            useAverageScore: e.target.checked,
+                                            averagePassScore: e.target.checked ? 60 : null
+                                        })}
+                                        style={{ width: '1.125rem', height: '1.125rem', cursor: 'pointer' }}
+                                    />
+                                    평균 점수 기준 사용
+                                </label>
+                                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', marginLeft: '1.625rem' }}>
+                                    모든 과목의 평균 점수가 기준 이상이어야 합격 처리됩니다
+                                </p>
+                            </div>
+
+                            {examSettings.useAverageScore && (
+                                <div style={{ marginLeft: '1.625rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                        평균 합격 점수 (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={examSettings.averagePassScore || 60}
+                                        onChange={(e) => setExamSettings({
+                                            ...examSettings,
+                                            averagePassScore: parseInt(e.target.value) || 60
+                                        })}
+                                        style={{
+                                            width: '200px',
+                                            padding: '0.625rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.875rem',
+                                            background: 'white'
+                                        }}
+                                    />
+                                    <span style={{ marginLeft: '0.5rem', fontSize: '0.875rem', color: '#64748b' }}>
+                                        점 이상
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 🆕 과목별 과락 설정 */}
+                        <div style={{
+                            padding: '1.5rem',
+                            background: '#f8fafc',
+                            borderRadius: '0.75rem',
+                            border: '1px solid #e2e8f0'
+                        }}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    fontWeight: 600
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={examSettings.useSubjectMinScore}
+                                        onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            const distribution = getSubjectDistribution();
+                                            const defaultScores: { [key: string]: number } = {};
+
+                                            if (isChecked) {
+                                                Object.keys(distribution).forEach(subjectId => {
+                                                    defaultScores[subjectId] = getDefaultSubjectMinScore();
+                                                });
+                                            }
+
+                                            setExamSettings({
+                                                ...examSettings,
+                                                useSubjectMinScore: isChecked,
+                                                subjectMinScores: isChecked ? defaultScores : {}
+                                            });
+                                        }}
+                                        style={{ width: '1.125rem', height: '1.125rem', cursor: 'pointer' }}
+                                    />
+                                    과목별 과락 기준 사용
+                                </label>
+                                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', marginLeft: '1.625rem' }}>
+                                    각 과목별로 최소 득점 기준을 설정할 수 있습니다
+                                </p>
+                            </div>
+
+                            {examSettings.useSubjectMinScore && (() => {
+                                const distribution = getSubjectDistribution();
+                                return (
+                                    <div style={{ marginLeft: '1.625rem', display: 'grid', gap: '1rem' }}>
+                                        {Object.entries(distribution).map(([subjectId, data]) => (
+                                            <div key={subjectId} style={{
+                                                padding: '1rem',
+                                                background: 'white',
+                                                borderRadius: '0.5rem',
+                                                border: '1px solid #e2e8f0'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
+                                                            {data.name}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                                            문제 {data.count}개
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <label style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                            최소 점수:
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={examSettings.subjectMinScores[subjectId] || 40}
+                                                            onChange={(e) => setExamSettings({
+                                                                ...examSettings,
+                                                                subjectMinScores: {
+                                                                    ...examSettings.subjectMinScores,
+                                                                    [subjectId]: parseInt(e.target.value) || 0
+                                                                }
+                                                            })}
+                                                            style={{
+                                                                width: '80px',
+                                                                padding: '0.5rem',
+                                                                border: '1px solid #e2e8f0',
+                                                                borderRadius: '0.375rem',
+                                                                fontSize: '0.875rem',
+                                                                textAlign: 'center'
+                                                            }}
+                                                        />
+                                                        <span style={{ fontSize: '0.875rem', color: '#64748b' }}>점</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div>

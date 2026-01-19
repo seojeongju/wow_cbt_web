@@ -12,7 +12,12 @@ export async function onRequestPost(context) {
             description,
             questionIds,
             mode,
-            randomOptions
+            randomOptions,
+            // 🆕 Advanced grading criteria
+            averagePassScore,
+            useAverageScore,
+            subjectMinScores,
+            useSubjectMinScore
         } = await request.json();
 
         if (!title || !courseId || !questionIds || questionIds.length === 0) {
@@ -29,8 +34,11 @@ export async function onRequestPost(context) {
         const examId = `exam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         await env.DB.prepare(`
-            INSERT INTO exams (id, title, course_id, subject_id, description, time_limit, pass_score, topic, round)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO exams (
+                id, title, course_id, subject_id, description, time_limit, pass_score, 
+                topic, round, average_pass_score, use_average_score, subject_min_scores, use_subject_min_score
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
             examId,
             title,
@@ -40,14 +48,18 @@ export async function onRequestPost(context) {
             timeLimit || 60,
             passScore || 60,
             null, // topic
-            null  // round
+            null, // round
+            averagePassScore || null,
+            useAverageScore ? 1 : 0,
+            subjectMinScores ? JSON.stringify(subjectMinScores) : null,
+            useSubjectMinScore ? 1 : 0
         ).run();
 
         // Link questions to exam
         // Since questions already exist, we need to either:
         // 1. Copy questions to new exam (recommended)
         // 2. Or create a mapping table
-        
+
         // Option 1: Copy questions to new exam
         for (const questionId of questionIds) {
             // Get original question
@@ -59,12 +71,13 @@ export async function onRequestPost(context) {
                 // Create new question for this exam
                 const newQuestionId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 await env.DB.prepare(`
-                    INSERT INTO questions (id, exam_id, category, text, options, correct_answer, explanation, image_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO questions (id, exam_id, category, subject_id, text, options, correct_answer, explanation, image_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).bind(
                     newQuestionId,
                     examId,
                     original.category,
+                    original.subject_id || subjectId || null, // Use original subject_id or fallback to exam's subjectId
                     original.text,
                     original.options,
                     original.correct_answer,
