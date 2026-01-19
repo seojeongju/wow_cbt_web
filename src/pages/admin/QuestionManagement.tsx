@@ -1989,9 +1989,17 @@ export const QuestionManagement = () => {
                                         const selectedSubject = subjects.find(s => s.name === mainSelectedSubjectName);
                                         const selectedSubjectId = selectedSubject?.id;
 
-                                        // Filter by subjectId for accuracy
+                                        // Filter logic:
+                                        // 1. If 'ALL_EXAMS' selected → show all exams
+                                        // 2. If specific subject selected → show exams matching that subject
+                                        // 3. If NO subject selected → show exams with no subject (미분류)
                                         const filteredBySubject = availableExams.filter(e => {
                                             if (mainSelectedSubjectName === 'ALL_EXAMS') return true;
+
+                                            if (!mainSelectedSubjectName) {
+                                                // No subject selected → show only unclassified exams (subjectId is null/undefined)
+                                                return !e.subjectId && !e.subjectName;
+                                            }
 
                                             if (selectedSubjectId) {
                                                 return e.subjectId === selectedSubjectId;
@@ -2010,7 +2018,7 @@ export const QuestionManagement = () => {
                                                         setMainSelectedTitle(e.target.value);
                                                         setSelectedExamId('');
                                                     }}
-                                                    disabled={!mainSelectedSubjectName}
+                                                    disabled={filteredBySubject.length === 0}
                                                     style={{ height: '42px' }}
                                                 >
                                                     <option value="">시험지를 선택하세요</option>
@@ -2029,12 +2037,18 @@ export const QuestionManagement = () => {
                                         const selectedSubjectId = selectedSubject?.id;
 
                                         const finalCandidates = availableExams.filter(e => {
-                                            // Match by subjectId
-                                            const subjectMatch = (mainSelectedSubjectName === 'ALL_EXAMS')
-                                                ? true
-                                                : selectedSubjectId
-                                                    ? e.subjectId === selectedSubjectId
-                                                    : (e.subjectName || '미분류') === mainSelectedSubjectName;
+                                            // Subject matching logic (same as Title dropdown)
+                                            let subjectMatch;
+                                            if (mainSelectedSubjectName === 'ALL_EXAMS') {
+                                                subjectMatch = true;
+                                            } else if (!mainSelectedSubjectName) {
+                                                // No subject selected → show only unclassified exams
+                                                subjectMatch = !e.subjectId && !e.subjectName;
+                                            } else if (selectedSubjectId) {
+                                                subjectMatch = e.subjectId === selectedSubjectId;
+                                            } else {
+                                                subjectMatch = (e.subjectName || '미분류') === mainSelectedSubjectName;
+                                            }
 
                                             const titleMatch = e.title === mainSelectedTitle;
 
