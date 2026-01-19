@@ -48,3 +48,12 @@
   - 시험지 목록 필터링 로직 개선 (과목 ID가 없는 경우 과목명으로 매칭, 전체 보기 시 필터 해제)
   - 시험지 생성 및 수정 모달에 '소분류(Topic)', '차시(Round)' 입력/수정 필드 추가
   - 시험지 수정 시 과목(Subject)이 비워지면 DB에서 subject_id를 null로 업데이트하도록 로직 수정
+
+### 3. 과정 소개 모달 콘텐츠 동기화
+- **경로**: `components/student/CourseDetailModal.tsx`
+- **내용**:
+  - 수강생 메인페이지(LandingPage)와 대시보드(StudentDashboard)의 과정 소개 모달 내용을 동일하게 통합
+  - DB 저장 데이터(`course.details`) 우선 사용, 없으면 하드코딩 데이터, 마지막으로 기본값 사용하는 3단계 Fallback 로직 구현
+  - LandingPage와 동일한 아이콘 및 색상 매칭 로직 적용 (과정명 기반 동적 변경)
+  - UI/UX 개선: 모달 크기 확대(600px→700px), 섹션 헤더에 아이콘 추가, 이용 방법 번호 자동 제거
+
