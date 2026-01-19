@@ -52,7 +52,12 @@ export const MockExamGenerator = () => {
         averagePassScore: null as number | null,
         useAverageScore: false,
         categoryMinScores: {} as { [category: string]: number }, // 🔄 카테고리별 최소 점수
-        useCategoryMinScore: false // 🔄 카테고리별 과락 사용 여부
+        useCategoryMinScore: false, // 🔄 카테고리별 과락 사용 여부
+
+        // 🆕 Classification (Target)
+        targetSubjectId: '', // 모의고사가 저장될 분류 (Source와 다를 수 있음)
+        topic: '', // 소분류 (예: 2025년 3월 학평)
+        round: '' // 차시 (예: 1회차)
     });
 
     // Step 4: 미리보기
@@ -280,7 +285,8 @@ export const MockExamGenerator = () => {
         setExamSettings(prev => ({
             ...prev,
             courseId: selectedCourseId,
-            subjectId: selectedSubjectId
+            subjectId: selectedSubjectId, // Source for questions (metadata)
+            targetSubjectId: selectedSubjectId // Default target to source
         }));
         setCurrentStep(3);
     };
@@ -303,7 +309,9 @@ export const MockExamGenerator = () => {
             const result = await ExamService.generateMockExam({
                 title: examSettings.title,
                 courseId: examSettings.courseId,
-                subjectId: examSettings.subjectId || undefined,
+                subjectId: examSettings.targetSubjectId || examSettings.subjectId || undefined, // Use target if set, else source
+                topic: examSettings.topic,
+                round: examSettings.round,
                 timeLimit: examSettings.timeLimit,
                 passScore: examSettings.passScore,
                 description: examSettings.description,
@@ -1175,6 +1183,79 @@ export const MockExamGenerator = () => {
                                     fontSize: '0.875rem'
                                 }}
                             />
+                        </div>
+
+                        {/* 🆕 분류 설정 (Source와 별개로 설정 가능) */}
+                        <div style={{
+                            padding: '1.5rem',
+                            background: '#f8fafc',
+                            borderRadius: '0.75rem',
+                            border: '1px solid #e2e8f0',
+                            display: 'grid',
+                            gap: '1rem'
+                        }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#1e293b' }}>
+                                분류 설정
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#475569' }}>
+                                        저장될 과목 (분류)
+                                    </label>
+                                    <select
+                                        value={examSettings.targetSubjectId}
+                                        onChange={(e) => setExamSettings({ ...examSettings, targetSubjectId: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.875rem'
+                                        }}
+                                    >
+                                        <option value="">전체 과목</option>
+                                        {subjects.map(subject => (
+                                            <option key={subject.id} value={subject.id}>{subject.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#475569' }}>
+                                        소분류 (토픽)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={examSettings.topic}
+                                        onChange={(e) => setExamSettings({ ...examSettings, topic: e.target.value })}
+                                        placeholder="예: 집합과 명제"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.875rem'
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#475569' }}>
+                                        차시 (회차)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={examSettings.round}
+                                        onChange={(e) => setExamSettings({ ...examSettings, round: e.target.value })}
+                                        placeholder="예: 1회차"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.875rem'
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>

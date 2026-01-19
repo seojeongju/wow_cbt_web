@@ -13,6 +13,9 @@ export async function onRequestPost(context) {
             questionIds,
             mode,
             randomOptions,
+            // 🆕 Classification
+            topic,
+            round,
             // 🔄 Advanced grading criteria
             averagePassScore,
             useAverageScore,
@@ -47,8 +50,8 @@ export async function onRequestPost(context) {
             description || '',
             timeLimit || 60,
             passScore || 60,
-            null, // topic
-            null, // round
+            topic || null, // topic
+            round || null, // round
             averagePassScore || null,
             useAverageScore ? 1 : 0,
             categoryMinScores ? JSON.stringify(categoryMinScores) : null,

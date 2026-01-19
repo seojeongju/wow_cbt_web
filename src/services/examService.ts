@@ -429,6 +429,9 @@ export const ExamService = {
             distributionType: 'random' | 'equal' | 'custom';
             categoryQuestions?: { [category: string]: number };
         };
+        // 🆕 Classification
+        topic?: string;
+        round?: string;
         // 🔄 Advanced grading criteria
         averagePassScore?: number | null;
         useAverageScore?: boolean;
