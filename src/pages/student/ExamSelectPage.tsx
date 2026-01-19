@@ -325,7 +325,7 @@ export const ExamSelectPage = () => {
                                 >
                                     <option value="all">전체</option>
                                     {rounds.filter(r => r !== 'all').map(round => (
-                                        <option key={round} value={round}>{round}</option>
+                                        <option key={round || ''} value={round || ''}>{round || '미분류'}</option>
                                     ))}
                                 </select>
                             </div>
