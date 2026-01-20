@@ -77,6 +77,20 @@ export const ExamService = {
         }
     },
 
+    copyExam: async (examId: string, targetCourseId: string, targetSubjectId?: string): Promise<{ success: boolean; examId?: string; message?: string }> => {
+        try {
+            const response = await fetch(`/api/exams/copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ examId, targetCourseId, targetSubjectId })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('copyExam error:', error);
+            return { success: false, message: 'Server error' };
+        }
+    },
+
     // --------------------------------------------------------------------------
     // Question Management
     // --------------------------------------------------------------------------

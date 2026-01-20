@@ -69,7 +69,9 @@ export const QuestionManagement = () => {
     const [subjectInputName, setSubjectInputName] = useState('');
 
     // ⭐️ Exam Move Modal State
+    // ⭐️ Exam Move Modal State
     const [showMoveModal, setShowMoveModal] = useState(false);
+    const [isCopyMode, setIsCopyMode] = useState(false);
     const [moveTargetExamId, setMoveTargetExamId] = useState<string | null>(null);
     const [moveTargetCourseId, setMoveTargetCourseId] = useState<string>('');
     const [moveTargetSubjectId, setMoveTargetSubjectId] = useState<string>('');
@@ -197,6 +199,7 @@ export const QuestionManagement = () => {
     // ⭐️ Exam Move Handlers
     const openMoveModal = (examId: string) => {
         setMoveTargetExamId(examId);
+        setIsCopyMode(false); // Default to Move
         // Default to current course
         const currentExam = exams.find(e => e.id === examId);
         if (currentExam) {
@@ -222,17 +225,28 @@ export const QuestionManagement = () => {
     const handleMoveExam = async () => {
         if (!moveTargetExamId || !moveTargetCourseId) return;
 
-        const result = await ExamService.updateExam(moveTargetExamId, {
-            courseId: moveTargetCourseId,
-            subjectId: moveTargetSubjectId || undefined // Allow clearing subject if empty string? Actually DB field is nullable
-        });
-
-        if (result.success) {
-            alert('이동되었습니다.');
-            setShowMoveModal(false);
-            loadInitialData(); // Reload everything
+        if (isCopyMode) {
+            const result = await ExamService.copyExam(moveTargetExamId, moveTargetCourseId, moveTargetSubjectId || undefined);
+            if (result.success) {
+                alert('복사되었습니다.');
+                setShowMoveModal(false);
+                loadInitialData(); // Reload everything
+            } else {
+                alert('복사 실패: ' + result.message);
+            }
         } else {
-            alert('이동 실패: ' + result.message);
+            const result = await ExamService.updateExam(moveTargetExamId, {
+                courseId: moveTargetCourseId,
+                subjectId: moveTargetSubjectId || undefined // Allow clearing subject if empty string? Actually DB field is nullable
+            });
+
+            if (result.success) {
+                alert('이동되었습니다.');
+                setShowMoveModal(false);
+                loadInitialData(); // Reload everything
+            } else {
+                alert('이동 실패: ' + result.message);
+            }
         }
     };
 
@@ -3686,7 +3700,28 @@ export const QuestionManagement = () => {
                         background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
                     }}>
                         <div className="glass-card" style={{ background: 'white', padding: '2rem', width: '400px', maxWidth: '95%' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>차시/시험지 이동</h3>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>차시/시험지 관리</h3>
+
+                            <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '0.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1, justifyContent: 'center', padding: '0.5rem', borderRadius: '0.25rem', background: !isCopyMode ? 'white' : 'transparent', boxShadow: !isCopyMode ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>
+                                    <input
+                                        type="radio"
+                                        checked={!isCopyMode}
+                                        onChange={() => setIsCopyMode(false)}
+                                        style={{ accentColor: 'var(--primary-600)' }}
+                                    />
+                                    <span style={{ fontWeight: !isCopyMode ? 600 : 400 }}>이동 (Move)</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1, justifyContent: 'center', padding: '0.5rem', borderRadius: '0.25rem', background: isCopyMode ? 'white' : 'transparent', boxShadow: isCopyMode ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>
+                                    <input
+                                        type="radio"
+                                        checked={isCopyMode}
+                                        onChange={() => setIsCopyMode(true)}
+                                        style={{ accentColor: 'var(--primary-600)' }}
+                                    />
+                                    <span style={{ fontWeight: isCopyMode ? 600 : 400 }}>복사 (Copy)</span>
+                                </label>
+                            </div>
 
                             <div style={{ marginBottom: '1rem' }}>
                                 <label className="input-label">이동할 과정</label>
@@ -3714,7 +3749,9 @@ export const QuestionManagement = () => {
 
                             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                                 <button onClick={() => setShowMoveModal(false)} className="btn btn-secondary">취소</button>
-                                <button onClick={handleMoveExam} className="btn btn-primary">이동 확인</button>
+                                <button onClick={handleMoveExam} className="btn btn-primary">
+                                    {isCopyMode ? '복사 확인' : '이동 확인'}
+                                </button>
                             </div>
                         </div>
                     </div>
