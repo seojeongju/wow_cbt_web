@@ -1,0 +1,70 @@
+-- WOW-CBT DATABASE COLLECTION DUMP (TOTAL) --
+-- Created for Software Copyright Registration --
+
+PRAGMA foreign_keys = OFF;
+
+-- [1] SCHEMA DEFINITION --
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    role TEXT DEFAULT 'student',
+    approved INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS courses (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    FOREIGN KEY(course_id) REFERENCES courses(id)
+);
+
+CREATE TABLE IF NOT EXISTS exams (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    time_limit INTEGER DEFAULT 60,
+    pass_score INTEGER DEFAULT 60,
+    FOREIGN KEY(course_id) REFERENCES courses(id)
+);
+
+CREATE TABLE IF NOT EXISTS questions (
+    id TEXT PRIMARY KEY,
+    exam_id TEXT NOT NULL,
+    category TEXT,
+    text TEXT NOT NULL,
+    options TEXT,
+    correct_answer TEXT NOT NULL,
+    explanation TEXT,
+    image_url TEXT,
+    FOREIGN KEY(exam_id) REFERENCES exams(id)
+);
+
+-- [2] DATA COLLECTION (INDIVIDUAL MATERIALS) --
+
+-- Courses Data
+INSERT INTO courses (id, name) VALUES ('course_3d_printer', '3D프린터운용기능사 자격증과정');
+
+-- Exams Data
+INSERT INTO exams (id, title, course_id, time_limit, pass_score) 
+VALUES ('exam_2024_01', '3D프린터운용기능사 필기 실전 모의고사 1회', 'course_3d_printer', 60, 60);
+
+-- Questions Data (Core Intellectual Assets)
+INSERT INTO questions (id, exam_id, category, text, options, correct_answer, explanation)
+VALUES 
+('q_001', 'exam_2024_01', '3D형상모델링', '다음 중 3D 모델링 방식에서 서피스(Surface) 모델링의 특징으로 옳은 것은?', '["내부가 채워진 솔리드 형태이다.", "두께가 없는 면의 집합으로 표현된다.", "복잡한 유기적 형상 표현이 불가능하다.", "질량, 부피 등의 물리적 특성을 자동 계산한다."]', '1', '서피스 모델링은 두께가 없는 면들의 집합으로 형상을 표현하는 방식입니다.'),
+('q_002', 'exam_2024_01', '3D프린팅설정', 'FDM(FFF) 방식 3D 프린터에서 출력물의 바닥 안착력을 높이기 위한 설정 종류가 아닌 것은?', '["Skirt (스커트)", "Brim (브림)", "Raft (라프트)", "Infill (내부채움)"]', '3', 'Infill은 출력물 내부를 채우는 설정입니다.'),
+('q_003', 'exam_2024_01', '3D프린터운용', '출력 도중 노즐이 막히는 현상의 원인으로 거리가 먼 것은?', '["노즐 온도가 너무 낮을 때", "필라멘트에 이물질이 묻어 있을 때", "베드 레벨링이 적절할 때", "출력 속도가 비정상적일 때"]', '2', '적절한 베드 레벨링은 노즐 막힘의 원인이 아닙니다.'),
+('q_004', 'exam_2024_01', '3D프린팅안전', '3D 프린터 사용 시 유해물질 예방 수칙으로 부적절한 것은?', '["환기를 실시한다.", "필터를 사용한다.", "출력 직후 바로 문을 열어 흡입한다.", "보호구를 착용한다."]', '2', '출력 직후에는 충분한 환기 시간을 가져야 합니다.'),
+('q_005', 'exam_2024_01', '3D형상모델링', '3D 모델링 데이터 포맷 중 가장 표준적으로 활용되는 포맷은?', '["STL", "MP3", "CSV", "XLSX"]', '0', '3D 프린팅에서는 STL 파일이 표준적으로 활용됩니다.');
+
+COMMIT;

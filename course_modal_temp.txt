@@ -1,0 +1,128 @@
+
+                {/* Course Detail Modal */}
+                {showDetailModal && selectedCourseDetail && (() => {
+                    const detail = courseDetails[selectedCourseDetail.name] || defaultCourseDetail;
+                    const color1 = selectedCourseDetail.name.includes('프린터') ? '#14b8a6' : '#6366f1';
+
+                    return (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                            zIndex: 1100, padding: '1rem'
+                        }}>
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                style={{
+                                    background: 'white', borderRadius: '1.5rem', width: '100%', maxWidth: '650px',
+                                    maxHeight: '90vh', overflowY: 'auto', position: 'relative'
+                                }}
+                            >
+                                <button
+                                    onClick={() => setShowDetailModal(false)}
+                                    style={{
+                                        position: 'absolute', top: '1.5rem', right: '1.5rem', width: '36px', height: '36px',
+                                        borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10
+                                    }}
+                                >
+                                    <X size={20} color="#64748b" />
+                                </button>
+
+                                <div style={{ padding: '2.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                                        <div style={{
+                                            width: '60px', height: '60px', borderRadius: '1rem',
+                                            background: `linear-gradient(135deg, ${color1}, ${color1}dd)`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: 'white'
+                                        }}>
+                                            <BookOpen size={30} />
+                                        </div>
+                                        <div>
+                                            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                                                {selectedCourseDetail.name}
+                                            </h2>
+                                            <span style={{ fontSize: '0.9rem', color: '#64748b' }}>온라인 CBT 문제은행</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                            📋 과정 소개
+                                        </h3>
+                                        <div style={{ color: '#475569', lineHeight: 1.7, background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem' }}>
+                                            {detail.description}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                            🎯 학습 대상
+                                        </h3>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            {detail.targets.map((t: string, i: number) => (
+                                                <span key={i} style={{
+                                                    padding: '0.5rem 1rem', background: '#f1f5f9', borderRadius: '2rem',
+                                                    fontSize: '0.9rem', color: '#475569'
+                                                }}>{t}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                            ⭐ 주요 특징
+                                        </h3>
+                                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                            {detail.features.map((f: string, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569' }}>
+                                                    <CheckCircle size={16} color="#10b981" />
+                                                    <span>{f}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
+                                            📚 이용 방법
+                                        </h3>
+                                        <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '0.75rem' }}>
+                                            {detail.howToUse.map((step: string, i: number) => (
+                                                <div key={i} style={{
+                                                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                                                    marginBottom: i < detail.howToUse.length - 1 ? '0.75rem' : 0,
+                                                    color: '#475569', fontSize: '0.95rem'
+                                                }}>
+                                                    <span style={{
+                                                        minWidth: '24px', height: '24px', borderRadius: '50%',
+                                                        background: color1, color: 'white', fontSize: '0.8rem',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600
+                                                    }}>{i + 1}</span>
+                                                    <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setShowDetailModal(false);
+                                            handleEnroll(selectedCourseDetail.id, selectedCourseDetail.name);
+                                        }}
+                                        style={{
+                                            width: '100%', padding: '1rem', borderRadius: '0.75rem',
+                                            background: `linear-gradient(135deg, ${color1}, ${color1}cc)`,
+                                            color: 'white', fontWeight: 700, fontSize: '1.1rem',
+                                            border: 'none', cursor: 'pointer', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                                        }}
+                                    >
+                                        <PlusCircle size={20} /> 과정 신청하기
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
