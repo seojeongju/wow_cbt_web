@@ -9,3 +9,7 @@ binding = "DB"
 database_name = "wow-cbt-db"
 database_id = "1a781c23-bfc9-42f4-a4e6-a3db7e5812bf"
 
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "wow-cbt-storage"
+

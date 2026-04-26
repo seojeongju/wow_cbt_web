@@ -14,6 +14,7 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import * as XLSX from 'xlsx';
 import DOMPurify from 'dompurify';
+import { StorageService } from '../../services/storageService'; // Added ⭐️
 
 export const QuestionManagement = () => {
     const navigate = useNavigate();
@@ -1107,16 +1108,31 @@ export const QuestionManagement = () => {
         });
     };
 
+    // ⭐️ Helper: Data URL to Blob
+    const dataUrlToBlob = (dataUrl: string): Blob => {
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)?.[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+    };
+
     // Image Upload Handler (with Compression)
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             try {
                 const compressedDataUrl = await compressImage(file);
-                setNewQuestion({ ...newQuestion, imageUrl: compressedDataUrl });
+                const blob = dataUrlToBlob(compressedDataUrl);
+                const r2Url = await StorageService.uploadFile(new File([blob], file.name, { type: 'image/jpeg' }));
+                setNewQuestion({ ...newQuestion, imageUrl: r2Url });
             } catch (error) {
-                console.error('Image compression failed:', error);
-                alert('이미지 처리 중 오류가 발생했습니다.');
+                console.error('Image upload failed:', error);
+                alert('이미지 업로드 중 오류가 발생했습니다.');
             }
         }
     };
@@ -1135,9 +1151,11 @@ export const QuestionManagement = () => {
                     if (blob) {
                         try {
                             const compressedDataUrl = await compressImage(blob);
-                            setNewQuestion((prev: any) => ({ ...prev, imageUrl: compressedDataUrl }));
+                            const compressedBlob = dataUrlToBlob(compressedDataUrl);
+                            const r2Url = await StorageService.uploadFile(new File([compressedBlob], `pasted-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+                            setNewQuestion((prev: any) => ({ ...prev, imageUrl: r2Url }));
                         } catch (error) {
-                            console.error('Paste image compression failed:', error);
+                            console.error('Paste image upload failed:', error);
                         }
                         e.preventDefault();
                         break;
@@ -1350,25 +1368,20 @@ export const QuestionManagement = () => {
             console.log(`Uploading image for Option ${idx + 1}...`);
             try {
                 const compressedDataUrl = await compressImage(file);
-                console.log(`Compression successful for Option ${idx + 1}. Length: ${compressedDataUrl.length}`);
-
+                const compressedBlob = dataUrlToBlob(compressedDataUrl);
+                const r2Url = await StorageService.uploadFile(new File([compressedBlob], file.name, { type: 'image/jpeg' }));
+                
                 setNewQuestion((prev: any) => {
-                    // Ensure we are working with an array
                     let currentImages = Array.isArray(prev.optionImages) ? [...prev.optionImages] : [];
-
-                    // Fill with nulls if shorter than idx
                     while (currentImages.length <= idx) {
                         currentImages.push(null);
                     }
-
-                    currentImages[idx] = compressedDataUrl;
-
-                    console.log('Updated optionImages array:', currentImages);
+                    currentImages[idx] = r2Url;
                     return { ...prev, optionImages: currentImages };
                 });
             } catch (error) {
-                console.error('Option image compression failed:', error);
-                alert('보기 이미지 처리 중 오류가 발생했습니다.');
+                console.error('Option image upload failed:', error);
+                alert('보기 이미지 업로드 중 오류가 발생했습니다.');
             }
         }
         e.target.value = ''; // Reset input
@@ -1384,17 +1397,19 @@ export const QuestionManagement = () => {
                 if (file) {
                     try {
                         const compressedDataUrl = await compressImage(file);
+                        const compressedBlob = dataUrlToBlob(compressedDataUrl);
+                        const r2Url = await StorageService.uploadFile(new File([compressedBlob], `pasted-option-${idx}-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+
                         setNewQuestion((prev: any) => {
                             let currentImages = Array.isArray(prev.optionImages) ? [...prev.optionImages] : [];
                             while (currentImages.length <= idx) {
                                 currentImages.push(null);
                             }
-                            currentImages[idx] = compressedDataUrl;
+                            currentImages[idx] = r2Url;
                             return { ...prev, optionImages: currentImages };
                         });
-                        console.log(`Pasted image to option ${idx + 1}`);
                     } catch (error) {
-                        console.error('Paste image compression failed:', error);
+                        console.error('Option paste image upload failed:', error);
                     }
                 }
                 break;
