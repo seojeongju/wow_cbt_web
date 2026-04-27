@@ -13,7 +13,7 @@ export async function onRequestPut(context) {
         }
 
         const { results } = await env.DB.prepare(
-            'SELECT status FROM cbt_attempts WHERE id = ?'
+            'SELECT status, end_at FROM cbt_attempts WHERE id = ?'
         ).bind(attemptId).all();
 
         if (!results.length) {
@@ -25,6 +25,21 @@ export async function onRequestPut(context) {
 
         if (results[0].status !== 'in_progress') {
             return new Response(JSON.stringify({ success: false, message: '이미 종료된 응시입니다.' }), {
+                status: 409,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        const now = new Date();
+        const endAt = new Date(results[0].end_at);
+        if (now > endAt) {
+            await env.DB.prepare(`
+                UPDATE cbt_attempts
+                SET status = 'timeout', submitted_at = ?, updated_at = ?
+                WHERE id = ?
+            `).bind(now.toISOString(), now.toISOString(), attemptId).run();
+
+            return new Response(JSON.stringify({ success: false, message: '시험 시간이 종료되었습니다.' }), {
                 status: 409,
                 headers: { 'Content-Type': 'application/json' }
             });

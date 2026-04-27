@@ -56,7 +56,16 @@ CREATE TABLE IF NOT EXISTS cbt_results (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS cbt_admin_logs (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    cbt_exam_id TEXT,
+    note TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_cbt_exams_active ON cbt_exams(is_active);
 CREATE INDEX IF NOT EXISTS idx_cbt_attempts_exam ON cbt_attempts(cbt_exam_id);
 CREATE INDEX IF NOT EXISTS idx_cbt_attempts_user ON cbt_attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_cbt_results_user ON cbt_results(user_id);
+CREATE INDEX IF NOT EXISTS idx_cbt_admin_logs_exam ON cbt_admin_logs(cbt_exam_id);

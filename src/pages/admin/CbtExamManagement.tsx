@@ -34,6 +34,7 @@ export const CbtExamManagement = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState('');
     const initialStatus = searchParams.get('status');
+    const initialEditExamId = searchParams.get('editExamId');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
         initialStatus === 'active' || initialStatus === 'inactive' ? initialStatus : 'all'
     );
@@ -93,6 +94,9 @@ export const CbtExamManagement = () => {
             const courseList = await CourseService.getCourses();
             setCourses(courseList);
             await loadExams();
+            if (initialEditExamId) {
+                await beginEdit(initialEditExamId);
+            }
         };
         load();
     }, []);
@@ -169,7 +173,7 @@ export const CbtExamManagement = () => {
     };
 
     const beginEdit = async (examId: string) => {
-        const res = await fetch(`/api/cbt/exams/${examId}`);
+        const res = await fetch(`/api/cbt/exams/${examId}?includeInactive=true`);
         const data = await res.json();
         if (!data.success || !data.exam) {
             alert(data.message || '시험 상세를 불러오지 못했습니다.');
@@ -283,6 +287,31 @@ export const CbtExamManagement = () => {
         await loadExams();
     };
 
+    const copyExam = async (exam: CbtExam) => {
+        const defaultSuffix = `복제본 ${new Date().toISOString().slice(0, 10)}`;
+        const suffix = prompt('복제본 제목 suffix를 입력하세요.', defaultSuffix);
+        if (suffix === null) return;
+        const moveToEdit = confirm('복제 후 바로 편집 화면으로 이동할까요?');
+        const res = await fetch(`/api/cbt/exams/${exam.id}/copy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titleSuffix: suffix || '복제본' })
+        });
+        const result = await res.json();
+        if (!result.success) {
+            alert(result.message || '복제 실패');
+            return;
+        }
+        alert(`복제 완료: ${result.examTitle || '복제본'} (기본 비활성)`);
+        if (moveToEdit && result.examId) {
+            const next = new URLSearchParams(window.location.search);
+            next.set('editExamId', result.examId);
+            setSearchParams(next, { replace: true });
+            await beginEdit(result.examId);
+        }
+        await loadExams();
+    };
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: '1rem' }}>
             <section className="glass-card" style={{ background: 'white', padding: '1.25rem' }}>
@@ -368,6 +397,7 @@ export const CbtExamManagement = () => {
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
                                 <button className="btn btn-secondary" onClick={() => beginEdit(exam.id)}>수정</button>
+                                <button className="btn btn-secondary" onClick={() => copyExam(exam)}>복제</button>
                                 <button className="btn btn-secondary" onClick={() => handleToggle(exam)}>
                                     {exam.isActive ? '비활성화' : '재활성화'}
                                 </button>

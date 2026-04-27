@@ -25,6 +25,8 @@ export async function onRequestPost(context) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+        const now = new Date();
+        const isTimeout = now > new Date(attempt.end_at);
 
         const { results: questions } = await env.DB.prepare(`
             SELECT q.id, q.correct_answer
@@ -47,14 +49,14 @@ export async function onRequestPost(context) {
         const score = Math.round((correct * 100) / (total || 1));
         const passed = score >= (attempt.pass_score || 60);
         const resultId = `cbt_result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const submittedAt = new Date().toISOString();
+        const submittedAt = now.toISOString();
 
         await env.DB.batch([
             env.DB.prepare(`
                 UPDATE cbt_attempts
-                SET status = 'submitted', submitted_at = ?, updated_at = ?
+                SET status = ?, submitted_at = ?, updated_at = ?
                 WHERE id = ?
-            `).bind(submittedAt, submittedAt, attemptId),
+            `).bind(isTimeout ? 'timeout' : 'submitted', submittedAt, submittedAt, attemptId),
             env.DB.prepare(`
                 INSERT INTO cbt_results (id, cbt_attempt_id, cbt_exam_id, user_id, score, total_questions, status, submitted_at, answers_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -65,7 +67,7 @@ export async function onRequestPost(context) {
                 attempt.user_id,
                 score,
                 total,
-                passed ? 'pass' : 'fail',
+                (isTimeout ? false : passed) ? 'pass' : 'fail',
                 submittedAt,
                 JSON.stringify(answers)
             )
@@ -79,7 +81,8 @@ export async function onRequestPost(context) {
                 examTitle: attempt.exam_title,
                 score,
                 totalQuestions: total,
-                passed,
+                passed: isTimeout ? false : passed,
+                timedOut: isTimeout,
                 submittedAt
             }
         }), {

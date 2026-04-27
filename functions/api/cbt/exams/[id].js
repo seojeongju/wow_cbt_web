@@ -1,7 +1,9 @@
 // GET /api/cbt/exams/[id]
 export async function onRequestGet(context) {
-    const { env, params } = context;
+    const { env, params, request } = context;
     const examId = params.id;
+    const url = new URL(request.url);
+    const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
     try {
         const { results: exams } = await env.DB.prepare(`
@@ -12,7 +14,8 @@ export async function onRequestGet(context) {
             FROM cbt_exams ce
             LEFT JOIN courses c ON ce.course_id = c.id
             LEFT JOIN subjects s ON ce.subject_id = s.id
-            WHERE ce.id = ? AND ce.is_active = 1
+            WHERE ce.id = ?
+            ${includeInactive ? '' : 'AND ce.is_active = 1'}
         `).bind(examId).all();
 
         if (!exams.length) {
@@ -141,6 +144,16 @@ export async function onRequestPut(context) {
         if (statements.length > 0) {
             await env.DB.batch(statements);
         }
+
+        await env.DB.prepare(`
+            INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
+            VALUES (?, 'update_exam', ?, ?, ?)
+        `).bind(
+            `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            examId,
+            `meta:${updates.length}, questions:${Array.isArray(questionIds) ? questionIds.length : 'unchanged'}`,
+            new Date().toISOString()
+        ).run();
 
         return new Response(JSON.stringify({ success: true, message: 'CBT 시험이 수정되었습니다.' }), {
             status: 200,

@@ -51,19 +51,46 @@ export const CbtGuidePage = () => {
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.9rem' }}>
                             <div style={{ color: '#1d4ed8', fontWeight: 700, marginBottom: '0.5rem' }}>① 시험 전: 수험자 정보 확인 및 안내사항 확인</div>
                             <div style={{ border: '1px solid #bfdbfe', borderRadius: '0.65rem', background: '#f8fafc', padding: '0.8rem', color: '#334155' }}>
-                                신분 확인 절차를 완료한 뒤 시험실 안내에 따라 지정석에 착석합니다.
+                                <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: '0.75rem', alignItems: 'center' }}>
+                                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#0ea5e9', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                                        01
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, color: '#0369a1' }}>수험자 정보 확인</div>
+                                        <div style={{ fontSize: '0.92rem', color: '#64748b' }}>신분 확인 절차를 완료한 뒤 시험실 안내에 따라 지정석에 착석합니다.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.9rem' }}>
                             <div style={{ color: '#1d4ed8', fontWeight: 700, marginBottom: '0.5rem' }}>② 시험 중: 문제풀이 및 답안제출</div>
                             <div style={{ border: '1px solid #bfdbfe', borderRadius: '0.65rem', background: '#f8fafc', padding: '0.8rem', color: '#334155' }}>
-                                관련 안내 확인 후, 답안 표기/검토/최종 제출 버튼을 통해 응시를 완료합니다.
+                                <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: '0.75rem', alignItems: 'center' }}>
+                                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                                        02
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, color: '#4338ca' }}>문항 풀이 및 답안 표기</div>
+                                        <div style={{ fontSize: '0.92rem', color: '#64748b' }}>문항 이동과 답안표기를 반복하며, 검토 후 최종 제출 버튼을 클릭합니다.</div>
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '0.65rem', border: '1px dashed #c7d2fe', borderRadius: '0.55rem', padding: '0.55rem', background: 'white', fontSize: '0.86rem', color: '#64748b' }}>
+                                    [안내사항] · [풀이설명] · [답안표기] · [답안제출]
+                                </div>
                             </div>
                         </div>
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.9rem' }}>
                             <div style={{ color: '#1d4ed8', fontWeight: 700, marginBottom: '0.5rem' }}>③ 시험 후: 답안 제출과 동시에 합격여부 확인</div>
                             <div style={{ border: '1px solid #bbf7d0', borderRadius: '0.65rem', background: '#f0fdf4', padding: '0.8rem', color: '#166534' }}>
-                                취득 점수와 합격 여부를 확인하고, 부족한 영역은 오답복습으로 보완합니다.
+                                <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: '0.75rem', alignItems: 'center' }}>
+                                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#16a34a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                                        03
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, color: '#166534' }}>채점 결과 확인</div>
+                                        <div style={{ fontSize: '0.92rem', color: '#64748b' }}>취득 점수와 합격 여부를 확인하고 부족한 영역은 오답 복습으로 보완합니다.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

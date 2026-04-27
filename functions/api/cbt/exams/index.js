@@ -110,6 +110,16 @@ export async function onRequestPost(context) {
         );
         await env.DB.batch(statements);
 
+        await env.DB.prepare(`
+            INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
+            VALUES (?, 'create_exam', ?, ?, ?)
+        `).bind(
+            `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            examId,
+            `${title} (${questionIds.length}문항)`,
+            now
+        ).run();
+
         return new Response(JSON.stringify({
             success: true,
             examId,
