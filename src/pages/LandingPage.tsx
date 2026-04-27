@@ -254,19 +254,55 @@ export const LandingPage = () => {
 
                         {/* Logged in: Dashboard button */}
                         {isLoggedIn ? (
-                            <button
-                                onClick={() => navigate('/student/dashboard')}
-                                className="btn btn-primary"
-                                style={{
-                                    fontSize: isMobile ? '0.85rem' : '0.95rem',
-                                    padding: isMobile ? '0.5rem 1rem' : '0.625rem 1.25rem'
-                                }}
-                            >
-                                {isMobile ? '대시보드' : '대시보드 가기'}
-                            </button>
+                            <>
+                                {!isMobile && (
+                                    <button
+                                        onClick={() => navigate('/student/cbt/guide')}
+                                        style={{
+                                            padding: '0.5rem 0.9rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            color: '#475569',
+                                            borderRadius: '0.5rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        CBT 시험
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => navigate('/student/dashboard')}
+                                    className="btn btn-primary"
+                                    style={{
+                                        fontSize: isMobile ? '0.85rem' : '0.95rem',
+                                        padding: isMobile ? '0.5rem 1rem' : '0.625rem 1.25rem'
+                                    }}
+                                >
+                                    {isMobile ? '대시보드' : '대시보드 가기'}
+                                </button>
+                            </>
                         ) : (
                             /* Not logged in: Login + Register */
                             <>
+                                {!isMobile && (
+                                    <button
+                                        onClick={() => navigate('/cbt-experience')}
+                                        style={{
+                                            padding: '0.5rem 0.9rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            color: '#475569',
+                                            borderRadius: '0.5rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        CBT 시험 안내
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => navigate('/login')}
                                     style={{
@@ -398,6 +434,24 @@ export const LandingPage = () => {
                             >
                                 시작하기 <ChevronRight size={16} />
                             </button>
+                            {!isLoggedIn && (
+                                <button
+                                    onClick={() => navigate('/cbt-experience')}
+                                    style={{
+                                        marginLeft: '0.5rem',
+                                        padding: '0.6rem 1.2rem',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 700,
+                                        color: '#e2e8f0',
+                                        background: 'transparent',
+                                        border: '1px solid rgba(226,232,240,0.6)',
+                                        borderRadius: '3rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    CBT 시험 안내
+                                </button>
+                            )}
                         </motion.div>
                     </AnimatePresence>
 

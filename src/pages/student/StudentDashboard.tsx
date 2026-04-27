@@ -475,6 +475,25 @@ export const StudentDashboard = () => {
                                     >
                                         <UserIcon size={16} /> 내 정보
                                     </button>
+                                    <button
+                                        onClick={() => navigate('/student/cbt/guide')}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600,
+                                            color: '#475569',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem'
+                                        }}
+                                        title="CBT 시험"
+                                    >
+                                        <Play size={16} /> CBT 시험
+                                    </button>
                                 </>
                             )}
 
@@ -528,6 +547,22 @@ export const StudentDashboard = () => {
                                         title="내 정보"
                                     >
                                         <UserIcon size={18} color="#475569" />
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/student/cbt/guide')}
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: 'transparent',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.5rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                        title="CBT 시험"
+                                    >
+                                        <Play size={18} color="#475569" />
                                     </button>
                                 </>
                             )}
@@ -660,11 +695,11 @@ export const StudentDashboard = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {/* 실전 모의고사 - 강조된 메인 카드 */}
                             <ActionCard
-                                title="CBT 필기시험"
-                                desc="독립 운영되는 CBT 실전 환경에서 응시하세요."
+                                title="실전 모의고사"
+                                desc="실제 시험과 동일한 환경에서 테스트해보세요."
                                 icon={<Play size={24} color="#6366f1" />}
                                 color="#e0e7ff"
-                                onClick={() => navigate('/student/cbt/guide')}
+                                onClick={() => navigate(`/student/exam?course=${encodeURIComponent(selectedCourse)}`)}
                                 isPrimary={true}
                             />
 

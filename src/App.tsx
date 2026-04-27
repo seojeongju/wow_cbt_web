@@ -5,6 +5,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { PublicCbtIntroPage } from './pages/PublicCbtIntroPage';
+import { PublicCbtExperiencePage } from './pages/PublicCbtExperiencePage';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -44,6 +46,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/cbt-intro" element={<PublicCbtIntroPage />} />
+        <Route path="/cbt-experience" element={<PublicCbtExperiencePage />} />
 
         {/* Admin Routes */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
