@@ -5,6 +5,18 @@ export async function onRequestGet(context) {
     const limit = Math.min(Number(url.searchParams.get('limit') || 100), 300);
 
     try {
+        const hasLogsTable = await env.DB.prepare(`
+            SELECT name FROM sqlite_master
+            WHERE type = 'table' AND name = 'cbt_admin_logs'
+            LIMIT 1
+        `).first();
+        if (!hasLogsTable) {
+            return new Response(JSON.stringify({
+                success: true,
+                logs: []
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
         let results = [];
         try {
             const queryResult = await env.DB.prepare(`
@@ -20,22 +32,27 @@ export async function onRequestGet(context) {
             `).bind(limit).all();
             results = queryResult.results || [];
         } catch (errorWithActorColumns) {
-            const fallbackResult = await env.DB.prepare(`
-                SELECT
-                    l.*,
-                    e.title AS exam_title
-                FROM cbt_admin_logs l
-                LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
-                ORDER BY l.created_at DESC
-                LIMIT ?
-            `).bind(limit).all();
-            results = fallbackResult.results || [];
-            console.warn('cbt admin logs actor columns unavailable:', errorWithActorColumns?.message || errorWithActorColumns);
-            if (String(errorWithActorColumns?.message || errorWithActorColumns).includes('no such table: cbt_admin_logs')) {
-                return new Response(JSON.stringify({
-                    success: true,
-                    logs: []
-                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            console.warn('cbt admin logs primary query failed:', errorWithActorColumns?.message || errorWithActorColumns);
+            try {
+                const fallbackResult = await env.DB.prepare(`
+                    SELECT
+                        l.*,
+                        e.title AS exam_title
+                    FROM cbt_admin_logs l
+                    LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
+                    ORDER BY l.created_at DESC
+                    LIMIT ?
+                `).bind(limit).all();
+                results = fallbackResult.results || [];
+            } catch (fallbackJoinError) {
+                console.warn('cbt admin logs join fallback failed:', fallbackJoinError?.message || fallbackJoinError);
+                const minimalResult = await env.DB.prepare(`
+                    SELECT *
+                    FROM cbt_admin_logs
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                `).bind(limit).all();
+                results = minimalResult.results || [];
             }
         }
 
