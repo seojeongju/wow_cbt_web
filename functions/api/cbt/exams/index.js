@@ -75,6 +75,38 @@ export async function onRequestPost(context) {
                 message: '시험 제목과 문제를 확인해주세요.'
             }), { status: 400, headers: { 'Content-Type': 'application/json' } });
         }
+        if (!courseId) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '과정을 선택해주세요.'
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Ensure all selected questions actually belong to the selected course.
+        const sanitizedQuestionIds = Array.from(new Set(questionIds.filter(Boolean)));
+        const placeholders = sanitizedQuestionIds.map(() => '?').join(',');
+        const { results: courseRows } = await env.DB.prepare(
+            'SELECT id, name FROM courses WHERE id = ?'
+        ).bind(courseId).all();
+        const resolvedCourseName = courseRows?.[0]?.name || null;
+        const courseMatchClause = resolvedCourseName ? '(e.course_id = ? OR e.course_id = ?)' : '(e.course_id = ?)';
+        const validationParams = resolvedCourseName
+            ? [courseId, resolvedCourseName, ...sanitizedQuestionIds]
+            : [courseId, ...sanitizedQuestionIds];
+        const { results: validRows } = await env.DB.prepare(`
+            SELECT q.id
+            FROM questions q
+            JOIN exams e ON e.id = q.exam_id
+            WHERE ${courseMatchClause}
+              AND q.id IN (${placeholders})
+        `).bind(...validationParams).all();
+        const validIds = new Set((validRows || []).map(r => r.id));
+        if (validIds.size !== sanitizedQuestionIds.length) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '선택한 과정에 속하지 않은 문항이 포함되어 있습니다. 문항을 다시 선택해주세요.'
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
 
         const examId = `cbt_exam_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const now = new Date().toISOString();
@@ -96,7 +128,7 @@ export async function onRequestPost(context) {
             now
         ).run();
 
-        const statements = questionIds.map((questionId, idx) =>
+        const statements = sanitizedQuestionIds.map((questionId, idx) =>
             env.DB.prepare(`
                 INSERT INTO cbt_exam_questions (id, cbt_exam_id, question_id, order_no, created_at)
                 VALUES (?, ?, ?, ?, ?)
@@ -120,7 +152,7 @@ export async function onRequestPost(context) {
                 examId,
                 adminUserId || null,
                 adminUserName || null,
-                `${title} (${questionIds.length}문항)`,
+                `${title} (${sanitizedQuestionIds.length}문항)`,
                 now
             ).run();
         } catch (logError) {
@@ -131,7 +163,7 @@ export async function onRequestPost(context) {
             `).bind(
                 logId,
                 examId,
-                `${title} (${questionIds.length}문항)`,
+                `${title} (${sanitizedQuestionIds.length}문항)`,
                 now
             ).run();
             console.warn('cbt admin log actor columns unavailable:', logError?.message || logError);

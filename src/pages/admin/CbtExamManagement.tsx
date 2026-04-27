@@ -6,7 +6,9 @@ import { useSearchParams } from 'react-router-dom';
 
 type Course = { id: string; name: string };
 type Subject = { id: string; name: string };
-type Question = { id: string; category: string; text: string };
+type Question = { id: string; category: string; text: string; subjectId?: string | null };
+type QuestionPoolCourse = { id: string; name: string; examCount: number; questionCount: number };
+type QuestionPoolSubject = { id: string; name: string; questionCount: number };
 type CbtExam = {
     id: string;
     title: string;
@@ -38,6 +40,8 @@ export const CbtExamManagement = () => {
     const currentAdmin = AuthService.getCurrentUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const [courses, setCourses] = useState<Course[]>([]);
+    const [questionPoolCourses, setQuestionPoolCourses] = useState<QuestionPoolCourse[]>([]);
+    const [questionPoolSubjects, setQuestionPoolSubjects] = useState<QuestionPoolSubject[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [pool, setPool] = useState<Question[]>([]);
     const [exams, setExams] = useState<CbtExam[]>([]);
@@ -105,6 +109,8 @@ export const CbtExamManagement = () => {
         return result;
     }, [logs, logActionFilter, logDateFilter]);
 
+    const isCreateTab = activeTab === 'create';
+
     useEffect(() => {
         const next = new URLSearchParams(window.location.search);
         if (statusFilter === 'all') next.delete('status');
@@ -145,10 +151,27 @@ export const CbtExamManagement = () => {
         setSelectedIds(new Set());
     };
 
+    const loadQuestionPoolCourses = async () => {
+        const res = await fetch('/api/cbt/admin/question-pool?scope=courses');
+        const data = await res.json();
+        setQuestionPoolCourses(data.courses || []);
+    };
+
+    const loadQuestionPoolSubjects = async (selectedCourseId: string) => {
+        if (!selectedCourseId) {
+            setQuestionPoolSubjects([]);
+            return;
+        }
+        const res = await fetch(`/api/cbt/admin/question-pool?scope=subjects&courseId=${encodeURIComponent(selectedCourseId)}`);
+        const data = await res.json();
+        setQuestionPoolSubjects(data.subjects || []);
+    };
+
     useEffect(() => {
         const load = async () => {
             const courseList = await CourseService.getCourses();
             setCourses(courseList);
+            await loadQuestionPoolCourses();
             await loadExams();
             await loadLogs();
             if (initialEditExamId) {
@@ -162,11 +185,13 @@ export const CbtExamManagement = () => {
         const loadSubjects = async () => {
             if (!courseId) {
                 setSubjects([]);
+                setQuestionPoolSubjects([]);
                 setSubjectId('');
                 return;
             }
             const subjectList = await SubjectService.getSubjects(courseId);
             setSubjects(subjectList);
+            await loadQuestionPoolSubjects(courseId);
             setSubjectId('');
             await loadPool(courseId, '');
         };
@@ -192,6 +217,11 @@ export const CbtExamManagement = () => {
         }
         if (!courseId) {
             alert('과정을 선택해주세요.');
+            return;
+        }
+        const courseWithQuestions = questionPoolCourses.find(c => c.id === courseId);
+        if (!courseWithQuestions || courseWithQuestions.questionCount === 0) {
+            alert('선택한 과정에는 문제은행 문항이 없습니다. 과정 또는 문항 구성을 확인해주세요.');
             return;
         }
         if (selectedIds.size === 0) {
@@ -230,6 +260,7 @@ export const CbtExamManagement = () => {
         setSelectedIds(new Set());
         await loadExams();
         await loadLogs();
+        await loadQuestionPoolCourses();
     };
 
     const beginEdit = async (examId: string) => {
@@ -383,6 +414,16 @@ export const CbtExamManagement = () => {
         await loadExams();
     };
 
+    const availableCourseIds = new Set(questionPoolCourses.map(c => c.id));
+    const selectableCourses = courses.filter(c => availableCourseIds.has(c.id));
+    const availableSubjectIds = new Set(questionPoolSubjects.map(s => s.id));
+    const selectableSubjects = subjects.filter(s => availableSubjectIds.has(s.id));
+    const selectedCourseMeta = questionPoolCourses.find(c => c.id === courseId);
+    const selectedSubjectMeta = questionPoolSubjects.find(s => s.id === subjectId);
+    const selectedSubjectQuestionCount = subjectId
+        ? pool.filter(q => q.subjectId === subjectId).length
+        : pool.length;
+
     return (
         <div style={{ display: 'grid', gap: '1rem' }}>
             <section className="glass-card" style={{ background: 'white', padding: '1.25rem' }}>
@@ -414,60 +455,106 @@ export const CbtExamManagement = () => {
                 </div>
             </section>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: '1rem' }}>
-            <section className="glass-card" style={{ display: activeTab === 'create' ? 'block' : 'none', background: 'white', padding: '1.25rem' }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.75rem' }}>CBT 시험 생성</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: isCreateTab ? '1fr' : '1.15fr 1fr', gap: '1rem' }}>
+            <section className="glass-card" style={{ display: isCreateTab ? 'block' : 'none', background: 'white', padding: '1.5rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                    <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '0.35rem' }}>CBT 시험 생성</h2>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>시험 정보 입력 후 문항을 선택해 바로 생성할 수 있습니다.</p>
+                </div>
 
-                <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder="시험 제목" className="input" />
-                    <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="시험 설명" rows={3} style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }} />
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                        <input value={topic} onChange={e => setTopic(e.target.value)} placeholder="소분류(토픽)" className="input" />
-                        <input value={round} onChange={e => setRound(e.target.value)} placeholder="차시(회차)" className="input" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.9rem', padding: '1rem', background: '#f8fafc' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.75rem' }}>시험 기본 정보</h3>
+                        <div style={{ display: 'grid', gap: '0.6rem' }}>
+                            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="시험 제목" className="input" style={{ padding: '0.72rem 0.8rem' }} />
+                            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="시험 설명" rows={4} style={{ padding: '0.72rem 0.8rem', borderRadius: '0.55rem', border: '1px solid #e2e8f0', resize: 'vertical' }} />
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                <input value={topic} onChange={e => setTopic(e.target.value)} placeholder="소분류(토픽)" className="input" style={{ padding: '0.72rem 0.8rem' }} />
+                                <input value={round} onChange={e => setRound(e.target.value)} placeholder="차시(회차)" className="input" style={{ padding: '0.72rem 0.8rem' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                <select value={courseId} onChange={e => setCourseId(e.target.value)} style={{ padding: '0.72rem 0.8rem', borderRadius: '0.55rem', border: '1px solid #e2e8f0' }}>
+                                    <option value="">문제은행 과정 선택</option>
+                                    {selectableCourses.map(c => {
+                                        const meta = questionPoolCourses.find(item => item.id === c.id);
+                                        return (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name} ({meta?.questionCount || 0}문항)
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <select value={subjectId} onChange={e => setSubjectId(e.target.value)} style={{ padding: '0.72rem 0.8rem', borderRadius: '0.55rem', border: '1px solid #e2e8f0' }}>
+                                    <option value="">과목 선택(선택)</option>
+                                    {selectableSubjects.map(s => {
+                                        const meta = questionPoolSubjects.find(item => item.id === s.id);
+                                        return (
+                                            <option key={s.id} value={s.id}>
+                                                {s.name} ({meta?.questionCount || 0}문항)
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            {courseId && (
+                                <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                                    선택 과정 문제은행 현황: {selectedCourseMeta?.questionCount || 0}문항 · {selectedCourseMeta?.examCount || 0}개 시험
+                                </div>
+                            )}
+                            {subjectId && (
+                                <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                                    선택 과목 문제은행 현황: {selectedSubjectMeta?.questionCount || 0}문항
+                                </div>
+                            )}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                <input type="number" value={timeLimit} onChange={e => setTimeLimit(parseInt(e.target.value) || 60)} placeholder="제한시간(분)" className="input" style={{ padding: '0.72rem 0.8rem' }} />
+                                <input type="number" value={passScore} onChange={e => setPassScore(parseInt(e.target.value) || 60)} placeholder="합격점수" className="input" style={{ padding: '0.72rem 0.8rem' }} />
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                        <select value={courseId} onChange={e => setCourseId(e.target.value)} style={{ padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                            <option value="">과정 선택</option>
-                            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <select value={subjectId} onChange={e => setSubjectId(e.target.value)} style={{ padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                            <option value="">과목 선택(선택)</option>
-                            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                        <input type="number" value={timeLimit} onChange={e => setTimeLimit(parseInt(e.target.value) || 60)} placeholder="제한시간(분)" className="input" />
-                        <input type="number" value={passScore} onChange={e => setPassScore(parseInt(e.target.value) || 60)} placeholder="합격점수" className="input" />
+
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.9rem', padding: '1rem' }}>
+                        <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            <h3 style={{ fontWeight: 800, fontSize: '1rem' }}>
+                                문항 선택 <span style={{ color: '#2563eb' }}>({selectedIds.size})</span>
+                            </h3>
+                            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="문항 검색" style={{ padding: '0.55rem 0.7rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', minWidth: '190px' }} />
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.55rem' }}>
+                            표시 {filteredPool.length}문항 (선택 과목 기준 {selectedSubjectQuestionCount}문항) · 선택 {selectedIds.size}문항
+                        </div>
+
+                        <div style={{ maxHeight: '500px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.45rem' }}>
+                            {filteredPool.map(q => (
+                                <label key={q.id} style={{ display: 'block', padding: '0.65rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(q.id)}
+                                        onChange={() => toggleQuestion(q.id)}
+                                        style={{ marginRight: '0.5rem' }}
+                                    />
+                                    <span style={{ fontSize: '0.75rem', color: '#4f46e5', marginRight: '0.35rem' }}>[{q.category || '기타'}]</span>
+                                    <span style={{ fontSize: '0.92rem' }}>{q.text}</span>
+                                </label>
+                            ))}
+                            {filteredPool.length === 0 && <div style={{ color: '#64748b', padding: '1rem' }}>조건에 맞는 문항이 없습니다.</div>}
+                        </div>
                     </div>
                 </div>
 
-                <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontWeight: 700 }}>문항 선택 ({selectedIds.size})</h3>
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="문항 검색" style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }} />
+                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-primary" style={{ minWidth: '170px', padding: '0.72rem 1rem' }} onClick={createCbtExam}>
+                        CBT 시험 생성
+                    </button>
                 </div>
-
-                <div style={{ maxHeight: '420px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.5rem' }}>
-                    {filteredPool.map(q => (
-                        <label key={q.id} style={{ display: 'block', padding: '0.6rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={selectedIds.has(q.id)}
-                                onChange={() => toggleQuestion(q.id)}
-                                style={{ marginRight: '0.5rem' }}
-                            />
-                            <span style={{ fontSize: '0.75rem', color: '#4f46e5', marginRight: '0.35rem' }}>[{q.category || '기타'}]</span>
-                            <span style={{ fontSize: '0.9rem' }}>{q.text}</span>
-                        </label>
-                    ))}
-                    {filteredPool.length === 0 && <div style={{ color: '#64748b', padding: '1rem' }}>조건에 맞는 문항이 없습니다.</div>}
-                </div>
-
-                <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={createCbtExam}>CBT 시험 생성</button>
             </section>
 
-            <section className="glass-card" style={{ display: activeTab === 'logs' ? 'block' : 'none', gridColumn: '1 / -1', background: 'white', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>CBT 관리자 작업 로그</h2>
+            <section className="glass-card" style={{ display: activeTab === 'logs' ? 'block' : 'none', gridColumn: '1 / -1', background: 'white', padding: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                        <h2 style={{ fontSize: '1.22rem', fontWeight: 800, marginBottom: '0.2rem' }}>CBT 관리자 작업 로그</h2>
+                        <p style={{ fontSize: '0.86rem', color: '#64748b' }}>액션 유형과 기간으로 로그를 빠르게 필터링할 수 있습니다.</p>
+                    </div>
                     <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <select
                             value={logActionFilter}
@@ -491,11 +578,14 @@ export const CbtExamManagement = () => {
                         <button className="btn btn-secondary" onClick={loadLogs}>새로고침</button>
                     </div>
                 </div>
-                <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem' }}>
+                <div style={{ marginBottom: '0.55rem', fontSize: '0.82rem', color: '#64748b' }}>
+                    조회 결과 {filteredLogs.length}건
+                </div>
+                <div style={{ maxHeight: '380px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.8rem', background: '#f8fafc' }}>
                     {filteredLogs.length === 0 ? (
                         <div style={{ padding: '1rem', color: '#64748b' }}>작업 로그가 없습니다.</div>
                     ) : filteredLogs.map(log => (
-                        <div key={log.id} style={{ padding: '0.7rem 0.8rem', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '180px 120px 1fr 220px', gap: '0.6rem', alignItems: 'center' }}>
+                        <div key={log.id} style={{ padding: '0.8rem 0.85rem', borderBottom: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '190px 120px 1fr 220px', gap: '0.65rem', alignItems: 'center', background: 'white' }}>
                             <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</div>
                             <div style={{ fontWeight: 700, color: '#334155' }}>
                                 {log.action === 'create_exam' && '시험 생성'}
@@ -514,9 +604,12 @@ export const CbtExamManagement = () => {
                 </div>
             </section>
 
-            <section className="glass-card" style={{ display: activeTab === 'list' ? 'block' : 'none', background: 'white', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>CBT 시험 목록</h2>
+            <section className="glass-card" style={{ display: activeTab === 'list' ? 'block' : 'none', background: 'white', padding: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                        <h2 style={{ fontSize: '1.22rem', fontWeight: 800, marginBottom: '0.2rem' }}>CBT 시험 목록</h2>
+                        <p style={{ fontSize: '0.86rem', color: '#64748b' }}>상태/키워드 기반으로 시험을 검색하고 즉시 운영 작업을 수행할 수 있습니다.</p>
+                    </div>
                     <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
                         <button className="btn btn-secondary" onClick={() => setActiveTab('create')}>
                             + 새 시험 만들기
@@ -538,9 +631,12 @@ export const CbtExamManagement = () => {
                         </select>
                     </div>
                 </div>
-                <div style={{ display: 'grid', gap: '0.55rem', maxHeight: '720px', overflowY: 'auto' }}>
+                <div style={{ marginBottom: '0.55rem', fontSize: '0.82rem', color: '#64748b' }}>
+                    조회 결과 {filteredExams.length}건
+                </div>
+                <div style={{ display: 'grid', gap: '0.65rem', maxHeight: '760px', overflowY: 'auto' }}>
                     {filteredExams.map(exam => (
-                        <div key={exam.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.8rem' }}>
+                        <div key={exam.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.85rem', padding: '0.9rem', background: '#f8fafc' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ fontWeight: 700 }}>{exam.title}</div>
                                 <span style={{
@@ -578,7 +674,7 @@ export const CbtExamManagement = () => {
                                     </span>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
                                 <button className="btn btn-secondary" onClick={() => beginEdit(exam.id)}>수정</button>
                                 <button className="btn btn-secondary" onClick={() => copyExam(exam)}>복제</button>
                                 <button className="btn btn-secondary" onClick={() => handleToggle(exam)}>
