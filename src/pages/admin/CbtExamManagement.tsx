@@ -6,6 +6,18 @@ import { useSearchParams } from 'react-router-dom';
 
 type Course = { id: string; name: string };
 type Subject = { id: string; name: string };
+type CbtCreateTemplate = {
+    id: string;
+    name: string;
+    courseId: string;
+    subjectId: string;
+    timeLimit: number;
+    passScore: number;
+    topicFilter: string;
+    roundFilter: string;
+    categoryFilter: string;
+    createdAt: string;
+};
 type Question = {
     id: string;
     category: string;
@@ -45,6 +57,7 @@ type CbtAdminLog = {
 };
 
 export const CbtExamManagement = () => {
+    const TEMPLATE_STORAGE_KEY = 'wow_cbt_create_templates_v1';
     const currentAdmin = AuthService.getCurrentUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const [courses, setCourses] = useState<Course[]>([]);
@@ -62,6 +75,10 @@ export const CbtExamManagement = () => {
     const [poolCategoryFilter, setPoolCategoryFilter] = useState('all');
     const [poolTopicFilter, setPoolTopicFilter] = useState('all');
     const [poolRoundFilter, setPoolRoundFilter] = useState('all');
+    const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+    const [templates, setTemplates] = useState<CbtCreateTemplate[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
+    const [templateSubjectIdToApply, setTemplateSubjectIdToApply] = useState('');
     const [examSearch, setExamSearch] = useState('');
     const [activeTab, setActiveTab] = useState<'create' | 'list' | 'logs'>('create');
     const [logActionFilter, setLogActionFilter] = useState<'all' | 'create_exam' | 'update_exam' | 'copy_exam'>('all');
@@ -129,7 +146,7 @@ export const CbtExamManagement = () => {
         setSearchParams(next, { replace: true });
     }, [statusFilter, setSearchParams]);
 
-    const filteredPool = useMemo(() => {
+    const filteredPoolBase = useMemo(() => {
         let result = pool;
         if (poolCategoryFilter !== 'all') {
             result = result.filter(q => (q.category || '') === poolCategoryFilter);
@@ -152,6 +169,11 @@ export const CbtExamManagement = () => {
         }
         return result;
     }, [pool, search, poolCategoryFilter, poolTopicFilter, poolRoundFilter]);
+
+    const filteredPool = useMemo(() => {
+        if (!showSelectedOnly) return filteredPoolBase;
+        return filteredPoolBase.filter(q => selectedIds.has(q.id));
+    }, [filteredPoolBase, showSelectedOnly, selectedIds]);
 
     const poolCategoryOptions = useMemo(() => {
         return Array.from(new Set(pool.map(q => q.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -191,12 +213,79 @@ export const CbtExamManagement = () => {
         setPoolCategoryFilter('all');
         setPoolTopicFilter('all');
         setPoolRoundFilter('all');
+        setShowSelectedOnly(false);
     };
 
     const loadQuestionPoolCourses = async () => {
         const res = await fetch('/api/cbt/admin/question-pool?scope=courses');
         const data = await res.json();
         setQuestionPoolCourses(data.courses || []);
+    };
+
+    const loadTemplates = () => {
+        try {
+            const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+            if (!raw) return setTemplates([]);
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) setTemplates(parsed);
+            else setTemplates([]);
+        } catch {
+            setTemplates([]);
+        }
+    };
+
+    const saveTemplates = (nextTemplates: CbtCreateTemplate[]) => {
+        setTemplates(nextTemplates);
+        localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(nextTemplates));
+    };
+
+    const saveCurrentAsTemplate = () => {
+        if (!courseId) {
+            alert('템플릿 저장 전 과정을 먼저 선택해주세요.');
+            return;
+        }
+        const name = prompt('템플릿 이름을 입력하세요.', `${title || 'CBT 템플릿'}_${new Date().toISOString().slice(0, 10)}`);
+        if (!name || !name.trim()) return;
+        const template: CbtCreateTemplate = {
+            id: `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: name.trim(),
+            courseId,
+            subjectId: subjectId || '',
+            timeLimit,
+            passScore,
+            topicFilter: poolTopicFilter,
+            roundFilter: poolRoundFilter,
+            categoryFilter: poolCategoryFilter,
+            createdAt: new Date().toISOString()
+        };
+        saveTemplates([template, ...templates].slice(0, 30));
+        setSelectedTemplateId(template.id);
+        alert('템플릿이 저장되었습니다.');
+    };
+
+    const applyTemplate = (templateId: string) => {
+        setSelectedTemplateId(templateId);
+        if (!templateId) return;
+        const tpl = templates.find(t => t.id === templateId);
+        if (!tpl) return;
+        setTemplateSubjectIdToApply(tpl.subjectId || '');
+        setCourseId(tpl.courseId || '');
+        setTimeLimit(tpl.timeLimit || 60);
+        setPassScore(tpl.passScore || 60);
+        setPoolTopicFilter(tpl.topicFilter || 'all');
+        setPoolRoundFilter(tpl.roundFilter || 'all');
+        setPoolCategoryFilter(tpl.categoryFilter || 'all');
+    };
+
+    const deleteTemplate = () => {
+        if (!selectedTemplateId) return;
+        const target = templates.find(t => t.id === selectedTemplateId);
+        if (!target) return;
+        const ok = confirm(`"${target.name}" 템플릿을 삭제할까요?`);
+        if (!ok) return;
+        const next = templates.filter(t => t.id !== selectedTemplateId);
+        saveTemplates(next);
+        setSelectedTemplateId('');
     };
 
     const loadQuestionPoolSubjects = async (selectedCourseId: string) => {
@@ -213,6 +302,7 @@ export const CbtExamManagement = () => {
         const load = async () => {
             const courseList = await CourseService.getCourses();
             setCourses(courseList);
+            loadTemplates();
             await loadQuestionPoolCourses();
             await loadExams();
             await loadLogs();
@@ -234,11 +324,13 @@ export const CbtExamManagement = () => {
             const subjectList = await SubjectService.getSubjects(courseId);
             setSubjects(subjectList);
             await loadQuestionPoolSubjects(courseId);
-            setSubjectId('');
-            await loadPool(courseId, '');
+            const nextSubjectId = templateSubjectIdToApply || '';
+            setSubjectId(nextSubjectId);
+            setTemplateSubjectIdToApply('');
+            await loadPool(courseId, nextSubjectId);
         };
         loadSubjects();
-    }, [courseId]);
+    }, [courseId, templateSubjectIdToApply]);
 
     useEffect(() => {
         if (!courseId) return;
@@ -250,6 +342,25 @@ export const CbtExamManagement = () => {
         if (next.has(id)) next.delete(id);
         else next.add(id);
         setSelectedIds(next);
+    };
+
+    const selectAllFilteredQuestions = () => {
+        if (filteredPool.length === 0) return;
+        const next = new Set(selectedIds);
+        filteredPool.forEach(q => next.add(q.id));
+        setSelectedIds(next);
+    };
+
+    const deselectFilteredQuestions = () => {
+        if (filteredPool.length === 0) return;
+        const idsToRemove = new Set(filteredPool.map(q => q.id));
+        const next = new Set(Array.from(selectedIds).filter(id => !idsToRemove.has(id)));
+        setSelectedIds(next);
+    };
+
+    const clearAllSelectedQuestions = () => {
+        setSelectedIds(new Set());
+        setShowSelectedOnly(false);
     };
 
     const createCbtExam = async () => {
@@ -269,6 +380,12 @@ export const CbtExamManagement = () => {
         if (selectedIds.size === 0) {
             alert('최소 1개 이상의 문제를 선택해주세요.');
             return;
+        }
+        if (selectionQuality.warnings.length > 0) {
+            const proceed = confirm(
+                `문항 구성 경고가 있습니다:\n- ${selectionQuality.warnings.join('\n- ')}\n\n그래도 생성하시겠습니까?`
+            );
+            if (!proceed) return;
         }
 
         const response = await fetch('/api/cbt/exams', {
@@ -465,6 +582,67 @@ export const CbtExamManagement = () => {
     const selectedSubjectQuestionCount = subjectId
         ? pool.filter(q => q.subjectId === subjectId).length
         : pool.length;
+    const selectedQuestionList = useMemo(() => {
+        const selectedSet = selectedIds;
+        return pool.filter(q => selectedSet.has(q.id));
+    }, [pool, selectedIds]);
+    const selectionQuality = useMemo(() => {
+        const total = selectedQuestionList.length;
+        const byCategory: Record<string, number> = {};
+        const byTopic: Record<string, number> = {};
+
+        selectedQuestionList.forEach(q => {
+            const categoryKey = q.category || '미분류';
+            const topicKey = q.topic || '미분류';
+            byCategory[categoryKey] = (byCategory[categoryKey] || 0) + 1;
+            byTopic[topicKey] = (byTopic[topicKey] || 0) + 1;
+        });
+
+        const categoryEntries = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+        const topicEntries = Object.entries(byTopic).sort((a, b) => b[1] - a[1]);
+        const warnings: string[] = [];
+
+        if (total > 0) {
+            if (categoryEntries.length <= 1 && total >= 8) warnings.push('카테고리가 1개로만 구성되어 있습니다.');
+            if (topicEntries.length <= 1 && total >= 8) warnings.push('토픽이 1개로만 구성되어 있습니다.');
+            const [topCategoryName, topCategoryCount] = categoryEntries[0] || ['', 0];
+            if (topCategoryCount / total >= 0.7 && total >= 10) {
+                warnings.push(`카테고리 편중이 큽니다. (${topCategoryName} ${topCategoryCount}/${total})`);
+            }
+            const [topTopicName, topTopicCount] = topicEntries[0] || ['', 0];
+            if (topTopicCount / total >= 0.7 && total >= 10) {
+                warnings.push(`토픽 편중이 큽니다. (${topTopicName} ${topTopicCount}/${total})`);
+            }
+        }
+
+        return { total, categoryEntries, topicEntries, warnings };
+    }, [selectedQuestionList]);
+
+    const parseLogNote = (note?: string | null) => {
+        if (!note) return { summary: '', details: [] as string[] };
+        if (!note.startsWith('diff_json:')) return { summary: note, details: [] as string[] };
+        try {
+            const raw = JSON.parse(note.slice('diff_json:'.length)) as Record<string, { before: unknown; after: unknown }>;
+            const labels: Record<string, string> = {
+                title: '제목',
+                courseId: '과정',
+                subjectId: '과목',
+                topic: '토픽',
+                round: '차시',
+                timeLimit: '제한시간',
+                passScore: '합격점수',
+                isActive: '활성여부',
+                questionCount: '문항수'
+            };
+            const details = Object.entries(raw).map(([key, value]) => {
+                const label = labels[key] || key;
+                return `${label}: ${String(value.before ?? '-')} -> ${String(value.after ?? '-')}`;
+            });
+            return { summary: details.length ? `변경 ${details.length}건` : '변경 없음', details };
+        } catch {
+            return { summary: note, details: [] as string[] };
+        }
+    };
 
     return (
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -502,6 +680,22 @@ export const CbtExamManagement = () => {
                 <div style={{ marginBottom: '1rem' }}>
                     <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '0.35rem' }}>CBT 시험 생성</h2>
                     <p style={{ color: '#64748b', fontSize: '0.9rem' }}>시험 정보 입력 후 문항을 선택해 바로 생성할 수 있습니다.</p>
+                    <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <select
+                            value={selectedTemplateId}
+                            onChange={e => applyTemplate(e.target.value)}
+                            style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', minWidth: '220px' }}
+                        >
+                            <option value="">템플릿 불러오기</option>
+                            {templates.map(t => (
+                                <option key={t.id} value={t.id}>
+                                    {t.name}
+                                </option>
+                            ))}
+                        </select>
+                        <button className="btn btn-secondary" onClick={saveCurrentAsTemplate}>현재 설정 템플릿 저장</button>
+                        <button className="btn btn-secondary" onClick={deleteTemplate} disabled={!selectedTemplateId}>선택 템플릿 삭제</button>
+                    </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
@@ -556,6 +750,31 @@ export const CbtExamManagement = () => {
                     </div>
 
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.9rem', padding: '1rem' }}>
+                        <div style={{ border: '1px solid #dbeafe', borderRadius: '0.7rem', padding: '0.65rem 0.7rem', background: '#eff6ff', marginBottom: '0.7rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <strong style={{ fontSize: '0.88rem', color: '#1e3a8a' }}>선택 문항 {selectedIds.size}개</strong>
+                                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                    <button className="btn btn-secondary" onClick={selectAllFilteredQuestions}>필터 결과 전체 선택</button>
+                                    <button className="btn btn-secondary" onClick={deselectFilteredQuestions}>필터 결과 선택 해제</button>
+                                    <button className="btn btn-secondary" onClick={clearAllSelectedQuestions}>전체 해제</button>
+                                    <button className="btn btn-secondary" onClick={() => setShowSelectedOnly(v => !v)}>
+                                        {showSelectedOnly ? '전체 보기' : '선택 문항만 보기'}
+                                    </button>
+                                </div>
+                            </div>
+                            {selectedQuestionList.length > 0 && (
+                                <div style={{ marginTop: '0.45rem', maxHeight: '78px', overflowY: 'auto', fontSize: '0.78rem', color: '#334155' }}>
+                                    {selectedQuestionList.slice(0, 25).map((q, idx) => (
+                                        <div key={q.id}>
+                                            {idx + 1}. {q.text}
+                                        </div>
+                                    ))}
+                                    {selectedQuestionList.length > 25 && (
+                                        <div style={{ color: '#64748b' }}>...외 {selectedQuestionList.length - 25}문항</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                             <h3 style={{ fontWeight: 800, fontSize: '1rem' }}>
                                 문항 선택 <span style={{ color: '#2563eb' }}>({selectedIds.size})</span>
@@ -591,6 +810,22 @@ export const CbtExamManagement = () => {
                         <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.55rem' }}>
                             표시 {filteredPool.length}문항 (선택 과목 기준 {selectedSubjectQuestionCount}문항) · 선택 {selectedIds.size}문항
                         </div>
+                        {selectionQuality.total > 0 && (
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.65rem', padding: '0.55rem 0.65rem', marginBottom: '0.6rem', background: '#f8fafc' }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.35rem', color: '#334155' }}>선택 문항 분포 점검</div>
+                                <div style={{ fontSize: '0.77rem', color: '#475569' }}>
+                                    카테고리: {selectionQuality.categoryEntries.slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ') || '-'}
+                                </div>
+                                <div style={{ fontSize: '0.77rem', color: '#475569', marginTop: '0.2rem' }}>
+                                    토픽: {selectionQuality.topicEntries.slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ') || '-'}
+                                </div>
+                                {selectionQuality.warnings.length > 0 && (
+                                    <div style={{ marginTop: '0.35rem', fontSize: '0.77rem', color: '#b45309' }}>
+                                        경고: {selectionQuality.warnings.join(' / ')}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div style={{ maxHeight: '500px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.45rem' }}>
                             {filteredPool.map(q => (
@@ -657,7 +892,9 @@ export const CbtExamManagement = () => {
                 <div style={{ maxHeight: '380px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.8rem', background: '#f8fafc' }}>
                     {filteredLogs.length === 0 ? (
                         <div style={{ padding: '1rem', color: '#64748b' }}>작업 로그가 없습니다.</div>
-                    ) : filteredLogs.map(log => (
+                    ) : filteredLogs.map(log => {
+                        const parsedNote = parseLogNote(log.note);
+                        return (
                         <div key={log.id} style={{ padding: '0.8rem 0.85rem', borderBottom: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '190px 120px 1fr 220px', gap: '0.65rem', alignItems: 'center', background: 'white' }}>
                             <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</div>
                             <div style={{ fontWeight: 700, color: '#334155' }}>
@@ -667,13 +904,18 @@ export const CbtExamManagement = () => {
                                 {!['create_exam', 'update_exam', 'copy_exam'].includes(log.action) && log.action}
                             </div>
                             <div style={{ fontSize: '0.88rem', color: '#475569' }}>
-                                {(log.exam_title || log.cbt_exam_id || 'N/A')} {log.note ? `· ${log.note}` : ''}
+                                <div>{(log.exam_title || log.cbt_exam_id || 'N/A')} {log.note ? `· ${parsedNote.summary}` : ''}</div>
+                                {parsedNote.details.length > 0 && (
+                                    <div style={{ marginTop: '0.2rem', fontSize: '0.78rem', color: '#64748b' }}>
+                                        {parsedNote.details.slice(0, 3).join(' / ')}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ fontSize: '0.82rem', color: '#334155' }}>
                                 작업자: {log.admin_user_name || log.admin_name_from_users || '-'} ({log.admin_user_id || '-'})
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
             </section>
 

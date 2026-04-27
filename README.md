@@ -35,6 +35,19 @@ npm run dev
    npx wrangler pages deploy dist
    ```
 
+### 배포 후 스모크 체크 (CBT 관리자 API)
+배포 URL 기준으로 CBT 관리자 핵심 API(조회/권한 가드)를 비파괴 방식으로 점검합니다.
+
+```bash
+npm run smoke:cbt-admin -- --base-url https://<your-pages-url>
+```
+
+또는:
+
+```bash
+BASE_URL=https://<your-pages-url> npm run smoke:cbt-admin
+```
+
 ## 🎨 디자인 시스템
 `src/index.css`에 정의된 CSS 변수를 사용하여 일관된 디자인을 유지합니다.
 - Primary Color: `#3b82f6` (Blue)

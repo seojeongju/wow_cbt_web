@@ -69,6 +69,22 @@ export async function onRequestPost(context) {
             timeLimit, passScore, questionIds, adminUserId, adminUserName
         } = await request.json();
 
+        if (!adminUserId) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 인증 정보가 필요합니다.'
+            }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+        }
+        const admin = await env.DB.prepare(
+            'SELECT id, name, role FROM users WHERE id = ?'
+        ).bind(adminUserId).first();
+        if (!admin || admin.role !== 'admin') {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 권한이 없습니다.'
+            }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
+
         if (!title || !Array.isArray(questionIds) || questionIds.length === 0) {
             return new Response(JSON.stringify({
                 success: false,
@@ -150,8 +166,8 @@ export async function onRequestPost(context) {
             `).bind(
                 logId,
                 examId,
-                adminUserId || null,
-                adminUserName || null,
+                admin.id || null,
+                admin.name || adminUserName || null,
                 `${title} (${sanitizedQuestionIds.length}문항)`,
                 now
             ).run();

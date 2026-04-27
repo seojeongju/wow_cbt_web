@@ -85,9 +85,32 @@ export async function onRequestPut(context) {
             timeLimit, passScore, questionIds, isActive, adminUserId, adminUserName
         } = body;
 
-        const { results: existing } = await env.DB.prepare(
-            'SELECT id FROM cbt_exams WHERE id = ?'
-        ).bind(examId).all();
+        if (!adminUserId) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 인증 정보가 필요합니다.'
+            }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+        }
+        const admin = await env.DB.prepare(
+            'SELECT id, name, role FROM users WHERE id = ?'
+        ).bind(adminUserId).first();
+        if (!admin || admin.role !== 'admin') {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 권한이 없습니다.'
+            }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        const { results: existing } = await env.DB.prepare(`
+            SELECT
+                ce.id, ce.title, ce.course_id, ce.subject_id, ce.topic, ce.round,
+                ce.description, ce.time_limit, ce.pass_score, ce.is_active,
+                COUNT(ceq.question_id) AS question_count
+            FROM cbt_exams ce
+            LEFT JOIN cbt_exam_questions ceq ON ce.id = ceq.cbt_exam_id
+            WHERE ce.id = ?
+            GROUP BY ce.id
+        `).bind(examId).all();
 
         if (!existing.length) {
             return new Response(JSON.stringify({ success: false, message: 'CBT 시험을 찾을 수 없습니다.' }), {
@@ -119,13 +142,17 @@ export async function onRequestPut(context) {
             `).bind(...bindParams));
         }
 
-        if (Array.isArray(questionIds)) {
+        const sanitizedQuestionIds = Array.isArray(questionIds)
+            ? Array.from(new Set(questionIds.filter(Boolean)))
+            : undefined;
+
+        if (Array.isArray(sanitizedQuestionIds)) {
             statements.push(
                 env.DB.prepare('DELETE FROM cbt_exam_questions WHERE cbt_exam_id = ?').bind(examId)
             );
 
             const now = new Date().toISOString();
-            questionIds.forEach((qId, idx) => {
+            sanitizedQuestionIds.forEach((qId, idx) => {
                 statements.push(
                     env.DB.prepare(`
                         INSERT INTO cbt_exam_questions (id, cbt_exam_id, question_id, order_no, created_at)
@@ -147,7 +174,22 @@ export async function onRequestPut(context) {
 
         const logId = `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const now = new Date().toISOString();
-        const logNote = `meta:${updates.length}, questions:${Array.isArray(questionIds) ? questionIds.length : 'unchanged'}`;
+        const before = existing[0];
+        const diffPayload = {
+            title: title !== undefined && title !== before.title ? { before: before.title, after: title } : undefined,
+            courseId: courseId !== undefined && (courseId || null) !== before.course_id ? { before: before.course_id, after: courseId || null } : undefined,
+            subjectId: subjectId !== undefined && (subjectId || null) !== before.subject_id ? { before: before.subject_id, after: subjectId || null } : undefined,
+            topic: topic !== undefined && (topic || null) !== before.topic ? { before: before.topic, after: topic || null } : undefined,
+            round: round !== undefined && (round || null) !== before.round ? { before: before.round, after: round || null } : undefined,
+            timeLimit: timeLimit !== undefined && (Number(timeLimit) || 60) !== Number(before.time_limit) ? { before: Number(before.time_limit), after: Number(timeLimit) || 60 } : undefined,
+            passScore: passScore !== undefined && (Number(passScore) || 60) !== Number(before.pass_score) ? { before: Number(before.pass_score), after: Number(passScore) || 60 } : undefined,
+            isActive: isActive !== undefined && (isActive ? 1 : 0) !== Number(before.is_active) ? { before: Number(before.is_active) === 1, after: !!isActive } : undefined,
+            questionCount: Array.isArray(sanitizedQuestionIds)
+                ? { before: Number(before.question_count || 0), after: sanitizedQuestionIds.length }
+                : undefined
+        };
+        const compactDiff = Object.fromEntries(Object.entries(diffPayload).filter(([, v]) => v !== undefined));
+        const logNote = `diff_json:${JSON.stringify(compactDiff)}`;
         try {
             await env.DB.prepare(`
                 INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, admin_user_id, admin_user_name, note, created_at)
@@ -155,8 +197,8 @@ export async function onRequestPut(context) {
             `).bind(
                 logId,
                 examId,
-                adminUserId || null,
-                adminUserName || null,
+                admin.id || null,
+                admin.name || adminUserName || null,
                 logNote,
                 now
             ).run();

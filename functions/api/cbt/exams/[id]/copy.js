@@ -9,6 +9,22 @@ export async function onRequestPost(context) {
         const adminUserId = body.adminUserId || null;
         const adminUserName = body.adminUserName || null;
 
+        if (!adminUserId) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 인증 정보가 필요합니다.'
+            }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+        }
+        const admin = await env.DB.prepare(
+            'SELECT id, name, role FROM users WHERE id = ?'
+        ).bind(adminUserId).first();
+        if (!admin || admin.role !== 'admin') {
+            return new Response(JSON.stringify({
+                success: false,
+                message: '관리자 권한이 없습니다.'
+            }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
+
         const { results: exams } = await env.DB.prepare(`
             SELECT * FROM cbt_exams WHERE id = ?
         `).bind(sourceExamId).all();
@@ -75,8 +91,8 @@ export async function onRequestPost(context) {
             `).bind(
                 logId,
                 newExamId,
-                adminUserId,
-                adminUserName,
+                admin.id || adminUserId,
+                admin.name || adminUserName,
                 logNote,
                 now
             )

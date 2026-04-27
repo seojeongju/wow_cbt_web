@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "dev:d1": "wrangler pages dev . --local --d1=DB",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke:cbt-admin": "node scripts/smoke-cbt-admin.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
