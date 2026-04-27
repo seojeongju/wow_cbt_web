@@ -5,19 +5,37 @@ export async function onRequestGet(context) {
     const limit = Math.min(Number(url.searchParams.get('limit') || 100), 300);
 
     try {
-        const { results } = await env.DB.prepare(`
-            SELECT
-                l.*,
-                e.title AS exam_title
-            FROM cbt_admin_logs l
-            LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
-            ORDER BY l.created_at DESC
-            LIMIT ?
-        `).bind(limit).all();
+        let results = [];
+        try {
+            const queryResult = await env.DB.prepare(`
+                SELECT
+                    l.*,
+                    e.title AS exam_title,
+                    u.name AS admin_name_from_users
+                FROM cbt_admin_logs l
+                LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
+                LEFT JOIN users u ON u.id = l.admin_user_id
+                ORDER BY l.created_at DESC
+                LIMIT ?
+            `).bind(limit).all();
+            results = queryResult.results || [];
+        } catch (errorWithActorColumns) {
+            const fallbackResult = await env.DB.prepare(`
+                SELECT
+                    l.*,
+                    e.title AS exam_title
+                FROM cbt_admin_logs l
+                LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
+                ORDER BY l.created_at DESC
+                LIMIT ?
+            `).bind(limit).all();
+            results = fallbackResult.results || [];
+            console.warn('cbt admin logs actor columns unavailable:', errorWithActorColumns?.message || errorWithActorColumns);
+        }
 
         return new Response(JSON.stringify({
             success: true,
-            logs: results || []
+            logs: results
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     } catch (error) {
         console.error('cbt admin logs list error', error);

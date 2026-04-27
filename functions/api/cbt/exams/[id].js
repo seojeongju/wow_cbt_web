@@ -82,7 +82,7 @@ export async function onRequestPut(context) {
         const body = await request.json();
         const {
             title, courseId, subjectId, topic, round, description,
-            timeLimit, passScore, questionIds, isActive
+            timeLimit, passScore, questionIds, isActive, adminUserId, adminUserName
         } = body;
 
         const { results: existing } = await env.DB.prepare(
@@ -145,15 +145,34 @@ export async function onRequestPut(context) {
             await env.DB.batch(statements);
         }
 
-        await env.DB.prepare(`
-            INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
-            VALUES (?, 'update_exam', ?, ?, ?)
-        `).bind(
-            `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            examId,
-            `meta:${updates.length}, questions:${Array.isArray(questionIds) ? questionIds.length : 'unchanged'}`,
-            new Date().toISOString()
-        ).run();
+        const logId = `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const now = new Date().toISOString();
+        const logNote = `meta:${updates.length}, questions:${Array.isArray(questionIds) ? questionIds.length : 'unchanged'}`;
+        try {
+            await env.DB.prepare(`
+                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, admin_user_id, admin_user_name, note, created_at)
+                VALUES (?, 'update_exam', ?, ?, ?, ?, ?)
+            `).bind(
+                logId,
+                examId,
+                adminUserId || null,
+                adminUserName || null,
+                logNote,
+                now
+            ).run();
+        } catch (logError) {
+            // Backward compatibility for old cbt_admin_logs schema.
+            await env.DB.prepare(`
+                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
+                VALUES (?, 'update_exam', ?, ?, ?)
+            `).bind(
+                logId,
+                examId,
+                logNote,
+                now
+            ).run();
+            console.warn('cbt admin log actor columns unavailable:', logError?.message || logError);
+        }
 
         return new Response(JSON.stringify({ success: true, message: 'CBT 시험이 수정되었습니다.' }), {
             status: 200,

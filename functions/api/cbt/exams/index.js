@@ -66,7 +66,7 @@ export async function onRequestPost(context) {
     try {
         const {
             title, courseId, subjectId, topic, round, description,
-            timeLimit, passScore, questionIds
+            timeLimit, passScore, questionIds, adminUserId, adminUserName
         } = await request.json();
 
         if (!title || !Array.isArray(questionIds) || questionIds.length === 0) {
@@ -110,15 +110,32 @@ export async function onRequestPost(context) {
         );
         await env.DB.batch(statements);
 
-        await env.DB.prepare(`
-            INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
-            VALUES (?, 'create_exam', ?, ?, ?)
-        `).bind(
-            `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            examId,
-            `${title} (${questionIds.length}문항)`,
-            now
-        ).run();
+        const logId = `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        try {
+            await env.DB.prepare(`
+                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, admin_user_id, admin_user_name, note, created_at)
+                VALUES (?, 'create_exam', ?, ?, ?, ?, ?)
+            `).bind(
+                logId,
+                examId,
+                adminUserId || null,
+                adminUserName || null,
+                `${title} (${questionIds.length}문항)`,
+                now
+            ).run();
+        } catch (logError) {
+            // Backward compatibility: run even if DB didn't apply actor columns yet.
+            await env.DB.prepare(`
+                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
+                VALUES (?, 'create_exam', ?, ?, ?)
+            `).bind(
+                logId,
+                examId,
+                `${title} (${questionIds.length}문항)`,
+                now
+            ).run();
+            console.warn('cbt admin log actor columns unavailable:', logError?.message || logError);
+        }
 
         return new Response(JSON.stringify({
             success: true,

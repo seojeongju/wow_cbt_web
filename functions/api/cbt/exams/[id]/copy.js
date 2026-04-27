@@ -6,6 +6,8 @@ export async function onRequestPost(context) {
     try {
         const body = await request.json().catch(() => ({}));
         const titleSuffix = body.titleSuffix || '복제본';
+        const adminUserId = body.adminUserId || null;
+        const adminUserName = body.adminUserName || null;
 
         const { results: exams } = await env.DB.prepare(`
             SELECT * FROM cbt_exams WHERE id = ?
@@ -64,19 +66,41 @@ export async function onRequestPost(context) {
             );
         });
 
+        const logId = `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const logNote = `from:${sourceExamId}, questions:${mappings.length}`;
         statements.push(
             env.DB.prepare(`
-                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
-                VALUES (?, 'copy_exam', ?, ?, ?)
+                INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, admin_user_id, admin_user_name, note, created_at)
+                VALUES (?, 'copy_exam', ?, ?, ?, ?, ?)
             `).bind(
-                `cbt_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                logId,
                 newExamId,
-                `from:${sourceExamId}, questions:${mappings.length}`,
+                adminUserId,
+                adminUserName,
+                logNote,
                 now
             )
         );
 
-        await env.DB.batch(statements);
+        try {
+            await env.DB.batch(statements);
+        } catch (errorWithActorColumns) {
+            // Backward compatibility when actor columns are not migrated yet.
+            const fallbackStatements = statements.slice(0, -1);
+            fallbackStatements.push(
+                env.DB.prepare(`
+                    INSERT INTO cbt_admin_logs (id, action, cbt_exam_id, note, created_at)
+                    VALUES (?, 'copy_exam', ?, ?, ?)
+                `).bind(
+                    logId,
+                    newExamId,
+                    logNote,
+                    now
+                )
+            );
+            await env.DB.batch(fallbackStatements);
+            console.warn('cbt admin log actor columns unavailable:', errorWithActorColumns?.message || errorWithActorColumns);
+        }
 
         return new Response(JSON.stringify({
             success: true,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CourseService } from '../../services/courseService';
 import { SubjectService } from '../../services/subjectService';
+import { AuthService } from '../../services/authService';
 import { useSearchParams } from 'react-router-dom';
 
 type Course = { id: string; name: string };
@@ -27,10 +28,14 @@ type CbtAdminLog = {
     cbt_exam_id?: string | null;
     exam_title?: string | null;
     note?: string | null;
+    admin_user_id?: string | null;
+    admin_user_name?: string | null;
+    admin_name_from_users?: string | null;
     created_at: string;
 };
 
 export const CbtExamManagement = () => {
+    const currentAdmin = AuthService.getCurrentUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const [courses, setCourses] = useState<Course[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -42,6 +47,10 @@ export const CbtExamManagement = () => {
     const [savingEdit, setSavingEdit] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState('');
+    const [examSearch, setExamSearch] = useState('');
+    const [activeTab, setActiveTab] = useState<'create' | 'list' | 'logs'>('create');
+    const [logActionFilter, setLogActionFilter] = useState<'all' | 'create_exam' | 'update_exam' | 'copy_exam'>('all');
+    const [logDateFilter, setLogDateFilter] = useState<'all' | 'today' | '7days'>('all');
     const initialStatus = searchParams.get('status');
     const initialEditExamId = searchParams.get('editExamId');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
@@ -59,10 +68,42 @@ export const CbtExamManagement = () => {
     const [isActiveEdit, setIsActiveEdit] = useState(true);
 
     const filteredExams = useMemo(() => {
-        if (statusFilter === 'all') return exams;
-        if (statusFilter === 'active') return exams.filter(e => e.isActive);
-        return exams.filter(e => !e.isActive);
-    }, [exams, statusFilter]);
+        let result = exams;
+        if (statusFilter === 'active') result = result.filter(e => e.isActive);
+        else if (statusFilter === 'inactive') result = result.filter(e => !e.isActive);
+
+        if (examSearch.trim()) {
+            const keyword = examSearch.trim().toLowerCase();
+            result = result.filter(e =>
+                (e.title || '').toLowerCase().includes(keyword) ||
+                (e.topic || '').toLowerCase().includes(keyword) ||
+                (e.round || '').toLowerCase().includes(keyword)
+            );
+        }
+        return result;
+    }, [exams, statusFilter, examSearch]);
+
+    const stats = useMemo(() => {
+        const total = exams.length;
+        const active = exams.filter(e => e.isActive).length;
+        const inactive = total - active;
+        return { total, active, inactive, logs: logs.length };
+    }, [exams, logs]);
+
+    const filteredLogs = useMemo(() => {
+        let result = logs;
+        if (logActionFilter !== 'all') {
+            result = result.filter(log => log.action === logActionFilter);
+        }
+        if (logDateFilter !== 'all') {
+            const now = Date.now();
+            const threshold = logDateFilter === 'today'
+                ? new Date(new Date().toDateString()).getTime()
+                : now - (7 * 24 * 60 * 60 * 1000);
+            result = result.filter(log => new Date(log.created_at).getTime() >= threshold);
+        }
+        return result;
+    }, [logs, logActionFilter, logDateFilter]);
 
     useEffect(() => {
         const next = new URLSearchParams(window.location.search);
@@ -170,7 +211,9 @@ export const CbtExamManagement = () => {
                 subjectId: subjectId || null,
                 timeLimit,
                 passScore,
-                questionIds: Array.from(selectedIds)
+                questionIds: Array.from(selectedIds),
+                adminUserId: currentAdmin?.id || null,
+                adminUserName: currentAdmin?.name || null
             })
         });
         const result = await response.json();
@@ -270,7 +313,9 @@ export const CbtExamManagement = () => {
                     timeLimit: editingExamDetail.timeLimit,
                     passScore: editingExamDetail.passScore,
                     isActive: isActiveEdit,
-                    questionIds: editingExamDetail.questions.map(q => q.id)
+                    questionIds: editingExamDetail.questions.map(q => q.id),
+                    adminUserId: currentAdmin?.id || null,
+                    adminUserName: currentAdmin?.name || null
                 })
             });
             const result = await res.json();
@@ -294,7 +339,11 @@ export const CbtExamManagement = () => {
         const res = await fetch(`/api/cbt/exams/${exam.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ isActive: makeActive })
+            body: JSON.stringify({
+                isActive: makeActive,
+                adminUserId: currentAdmin?.id || null,
+                adminUserName: currentAdmin?.name || null
+            })
         });
         const result = await res.json();
         if (!result.success) {
@@ -313,7 +362,11 @@ export const CbtExamManagement = () => {
         const res = await fetch(`/api/cbt/exams/${exam.id}/copy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titleSuffix: suffix || '복제본' })
+            body: JSON.stringify({
+                titleSuffix: suffix || '복제본',
+                adminUserId: currentAdmin?.id || null,
+                adminUserName: currentAdmin?.name || null
+            })
         });
         const result = await res.json();
         if (!result.success) {
@@ -331,8 +384,38 @@ export const CbtExamManagement = () => {
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: '1rem' }}>
+        <div style={{ display: 'grid', gap: '1rem' }}>
             <section className="glass-card" style={{ background: 'white', padding: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.85rem' }}>
+                        <div style={{ color: '#64748b', fontSize: '0.82rem' }}>전체 CBT 시험</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.total}</div>
+                    </div>
+                    <div style={{ border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.85rem', background: '#f0fdf4' }}>
+                        <div style={{ color: '#166534', fontSize: '0.82rem' }}>활성 시험</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#166534' }}>{stats.active}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.85rem', background: '#f8fafc' }}>
+                        <div style={{ color: '#475569', fontSize: '0.82rem' }}>비활성 시험</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#334155' }}>{stats.inactive}</div>
+                    </div>
+                    <div style={{ border: '1px solid #dbeafe', borderRadius: '0.75rem', padding: '0.85rem', background: '#eff6ff' }}>
+                        <div style={{ color: '#1d4ed8', fontSize: '0.82rem' }}>최근 로그(표시)</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1d4ed8' }}>{stats.logs}</div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="glass-card" style={{ background: 'white', padding: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button className={activeTab === 'create' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('create')}>시험 생성</button>
+                    <button className={activeTab === 'list' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('list')}>시험 목록</button>
+                    <button className={activeTab === 'logs' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('logs')}>작업 로그</button>
+                </div>
+            </section>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: '1rem' }}>
+            <section className="glass-card" style={{ display: activeTab === 'create' ? 'block' : 'none', background: 'white', padding: '1.25rem' }}>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.75rem' }}>CBT 시험 생성</h2>
 
                 <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -382,38 +465,78 @@ export const CbtExamManagement = () => {
                 <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={createCbtExam}>CBT 시험 생성</button>
             </section>
 
-            <section className="glass-card" style={{ gridColumn: '1 / -1', background: 'white', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <section className="glass-card" style={{ display: activeTab === 'logs' ? 'block' : 'none', gridColumn: '1 / -1', background: 'white', padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>CBT 관리자 작업 로그</h2>
-                    <button className="btn btn-secondary" onClick={loadLogs}>새로고침</button>
+                    <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <select
+                            value={logActionFilter}
+                            onChange={e => setLogActionFilter(e.target.value as 'all' | 'create_exam' | 'update_exam' | 'copy_exam')}
+                            style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                        >
+                            <option value="all">전체 액션</option>
+                            <option value="create_exam">시험 생성</option>
+                            <option value="update_exam">시험 수정</option>
+                            <option value="copy_exam">시험 복제</option>
+                        </select>
+                        <select
+                            value={logDateFilter}
+                            onChange={e => setLogDateFilter(e.target.value as 'all' | 'today' | '7days')}
+                            style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                        >
+                            <option value="all">전체 기간</option>
+                            <option value="today">오늘</option>
+                            <option value="7days">최근 7일</option>
+                        </select>
+                        <button className="btn btn-secondary" onClick={loadLogs}>새로고침</button>
+                    </div>
                 </div>
                 <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem' }}>
-                    {logs.length === 0 ? (
+                    {filteredLogs.length === 0 ? (
                         <div style={{ padding: '1rem', color: '#64748b' }}>작업 로그가 없습니다.</div>
-                    ) : logs.map(log => (
-                        <div key={log.id} style={{ padding: '0.7rem 0.8rem', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '180px 140px 1fr', gap: '0.6rem', alignItems: 'center' }}>
+                    ) : filteredLogs.map(log => (
+                        <div key={log.id} style={{ padding: '0.7rem 0.8rem', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '180px 120px 1fr 220px', gap: '0.6rem', alignItems: 'center' }}>
                             <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</div>
-                            <div style={{ fontWeight: 700, color: '#334155' }}>{log.action}</div>
+                            <div style={{ fontWeight: 700, color: '#334155' }}>
+                                {log.action === 'create_exam' && '시험 생성'}
+                                {log.action === 'update_exam' && '시험 수정'}
+                                {log.action === 'copy_exam' && '시험 복제'}
+                                {!['create_exam', 'update_exam', 'copy_exam'].includes(log.action) && log.action}
+                            </div>
                             <div style={{ fontSize: '0.88rem', color: '#475569' }}>
                                 {(log.exam_title || log.cbt_exam_id || 'N/A')} {log.note ? `· ${log.note}` : ''}
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#334155' }}>
+                                작업자: {log.admin_user_name || log.admin_name_from_users || '-'} ({log.admin_user_id || '-'})
                             </div>
                         </div>
                     ))}
                 </div>
             </section>
 
-            <section className="glass-card" style={{ background: 'white', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <section className="glass-card" style={{ display: activeTab === 'list' ? 'block' : 'none', background: 'white', padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>CBT 시험 목록</h2>
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-                        style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
-                    >
-                        <option value="all">전체</option>
-                        <option value="active">활성</option>
-                        <option value="inactive">비활성</option>
-                    </select>
+                    <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
+                        <button className="btn btn-secondary" onClick={() => setActiveTab('create')}>
+                            + 새 시험 만들기
+                        </button>
+                        <input
+                            value={examSearch}
+                            onChange={e => setExamSearch(e.target.value)}
+                            placeholder="시험명/토픽/회차 검색"
+                            style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', minWidth: '160px' }}
+                        />
+                        <select
+                            value={statusFilter}
+                            onChange={e => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                            style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                        >
+                            <option value="all">전체</option>
+                            <option value="active">활성</option>
+                            <option value="inactive">비활성</option>
+                        </select>
+                    </div>
                 </div>
                 <div style={{ display: 'grid', gap: '0.55rem', maxHeight: '720px', overflowY: 'auto' }}>
                     {filteredExams.map(exam => (
@@ -433,7 +556,29 @@ export const CbtExamManagement = () => {
                             <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
                                 {exam.timeLimit}분 · {exam.questionCount}문항 · 합격 {exam.passScore}점
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                            <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
+                                {exam.courseId && (
+                                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '999px', background: '#f1f5f9', color: '#334155' }}>
+                                        과정: {exam.courseId}
+                                    </span>
+                                )}
+                                {exam.subjectId && (
+                                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '999px', background: '#eef2ff', color: '#4338ca' }}>
+                                        과목: {exam.subjectId}
+                                    </span>
+                                )}
+                                {exam.topic && (
+                                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '999px', background: '#ecfeff', color: '#0e7490' }}>
+                                        토픽: {exam.topic}
+                                    </span>
+                                )}
+                                {exam.round && (
+                                    <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem', borderRadius: '999px', background: '#fffbeb', color: '#b45309' }}>
+                                        회차: {exam.round}
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
                                 <button className="btn btn-secondary" onClick={() => beginEdit(exam.id)}>수정</button>
                                 <button className="btn btn-secondary" onClick={() => copyExam(exam)}>복제</button>
                                 <button className="btn btn-secondary" onClick={() => handleToggle(exam)}>
@@ -445,6 +590,7 @@ export const CbtExamManagement = () => {
                     {filteredExams.length === 0 && <div style={{ color: '#64748b' }}>조건에 맞는 CBT 시험이 없습니다.</div>}
                 </div>
             </section>
+            </div>
 
             {editingExamDetail && (
                 <section className="glass-card" style={{ gridColumn: '1 / -1', background: 'white', padding: '1.25rem' }}>
