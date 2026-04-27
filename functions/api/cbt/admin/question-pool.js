@@ -80,7 +80,10 @@ export async function onRequestGet(context) {
         let query = `
             SELECT
                 q.*,
-                e.subject_id
+                e.subject_id,
+                e.topic,
+                e.round,
+                e.title AS exam_title
             FROM questions q
             JOIN exams e ON e.id = q.exam_id
             WHERE 1=1
@@ -115,6 +118,9 @@ export async function onRequestGet(context) {
                 category: q.category,
                 text: q.text,
                 subjectId: q.subject_id || null,
+                topic: q.topic || null,
+                round: q.round || null,
+                examTitle: q.exam_title || null,
                 options: q.options ? JSON.parse(q.options) : [],
                 correctAnswer: isNaN(Number(q.correct_answer)) ? q.correct_answer : Number(q.correct_answer)
             }))

@@ -6,7 +6,15 @@ import { useSearchParams } from 'react-router-dom';
 
 type Course = { id: string; name: string };
 type Subject = { id: string; name: string };
-type Question = { id: string; category: string; text: string; subjectId?: string | null };
+type Question = {
+    id: string;
+    category: string;
+    text: string;
+    subjectId?: string | null;
+    topic?: string | null;
+    round?: string | null;
+    examTitle?: string | null;
+};
 type QuestionPoolCourse = { id: string; name: string; examCount: number; questionCount: number };
 type QuestionPoolSubject = { id: string; name: string; questionCount: number };
 type CbtExam = {
@@ -51,6 +59,9 @@ export const CbtExamManagement = () => {
     const [savingEdit, setSavingEdit] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState('');
+    const [poolCategoryFilter, setPoolCategoryFilter] = useState('all');
+    const [poolTopicFilter, setPoolTopicFilter] = useState('all');
+    const [poolRoundFilter, setPoolRoundFilter] = useState('all');
     const [examSearch, setExamSearch] = useState('');
     const [activeTab, setActiveTab] = useState<'create' | 'list' | 'logs'>('create');
     const [logActionFilter, setLogActionFilter] = useState<'all' | 'create_exam' | 'update_exam' | 'copy_exam'>('all');
@@ -119,10 +130,38 @@ export const CbtExamManagement = () => {
     }, [statusFilter, setSearchParams]);
 
     const filteredPool = useMemo(() => {
-        if (!search.trim()) return pool;
-        const lower = search.toLowerCase();
-        return pool.filter(q => q.text.toLowerCase().includes(lower) || (q.category || '').toLowerCase().includes(lower));
-    }, [pool, search]);
+        let result = pool;
+        if (poolCategoryFilter !== 'all') {
+            result = result.filter(q => (q.category || '') === poolCategoryFilter);
+        }
+        if (poolTopicFilter !== 'all') {
+            result = result.filter(q => (q.topic || '') === poolTopicFilter);
+        }
+        if (poolRoundFilter !== 'all') {
+            result = result.filter(q => (q.round || '') === poolRoundFilter);
+        }
+        if (search.trim()) {
+            const lower = search.toLowerCase();
+            result = result.filter(q =>
+                (q.text || '').toLowerCase().includes(lower) ||
+                (q.category || '').toLowerCase().includes(lower) ||
+                (q.topic || '').toLowerCase().includes(lower) ||
+                (q.round || '').toLowerCase().includes(lower) ||
+                (q.examTitle || '').toLowerCase().includes(lower)
+            );
+        }
+        return result;
+    }, [pool, search, poolCategoryFilter, poolTopicFilter, poolRoundFilter]);
+
+    const poolCategoryOptions = useMemo(() => {
+        return Array.from(new Set(pool.map(q => q.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [pool]);
+    const poolTopicOptions = useMemo(() => {
+        return Array.from(new Set(pool.map(q => q.topic || '').filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [pool]);
+    const poolRoundOptions = useMemo(() => {
+        return Array.from(new Set(pool.map(q => q.round || '').filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [pool]);
 
     const loadExams = async () => {
         const res = await fetch('/api/cbt/exams?includeInactive=true');
@@ -149,6 +188,9 @@ export const CbtExamManagement = () => {
         const data = await res.json();
         setPool(data.questions || []);
         setSelectedIds(new Set());
+        setPoolCategoryFilter('all');
+        setPoolTopicFilter('all');
+        setPoolRoundFilter('all');
     };
 
     const loadQuestionPoolCourses = async () => {
@@ -520,6 +562,32 @@ export const CbtExamManagement = () => {
                             </h3>
                             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="문항 검색" style={{ padding: '0.55rem 0.7rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', minWidth: '190px' }} />
                         </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '0.45rem', marginBottom: '0.6rem' }}>
+                            <select
+                                value={poolTopicFilter}
+                                onChange={e => setPoolTopicFilter(e.target.value)}
+                                style={{ padding: '0.5rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                            >
+                                <option value="all">전체 토픽</option>
+                                {poolTopicOptions.map(item => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                            <select
+                                value={poolRoundFilter}
+                                onChange={e => setPoolRoundFilter(e.target.value)}
+                                style={{ padding: '0.5rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                            >
+                                <option value="all">전체 차시</option>
+                                {poolRoundOptions.map(item => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                            <select
+                                value={poolCategoryFilter}
+                                onChange={e => setPoolCategoryFilter(e.target.value)}
+                                style={{ padding: '0.5rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}
+                            >
+                                <option value="all">전체 카테고리</option>
+                                {poolCategoryOptions.map(item => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                        </div>
                         <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.55rem' }}>
                             표시 {filteredPool.length}문항 (선택 과목 기준 {selectedSubjectQuestionCount}문항) · 선택 {selectedIds.size}문항
                         </div>
@@ -535,6 +603,11 @@ export const CbtExamManagement = () => {
                                     />
                                     <span style={{ fontSize: '0.75rem', color: '#4f46e5', marginRight: '0.35rem' }}>[{q.category || '기타'}]</span>
                                     <span style={{ fontSize: '0.92rem' }}>{q.text}</span>
+                                    {(q.topic || q.round) && (
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '0.45rem' }}>
+                                            {q.topic ? `토픽:${q.topic}` : ''}{q.topic && q.round ? ' · ' : ''}{q.round ? `차시:${q.round}` : ''}
+                                        </span>
+                                    )}
                                 </label>
                             ))}
                             {filteredPool.length === 0 && <div style={{ color: '#64748b', padding: '1rem' }}>조건에 맞는 문항이 없습니다.</div>}
