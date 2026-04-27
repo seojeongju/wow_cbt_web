@@ -31,6 +31,12 @@ export async function onRequestGet(context) {
             `).bind(limit).all();
             results = fallbackResult.results || [];
             console.warn('cbt admin logs actor columns unavailable:', errorWithActorColumns?.message || errorWithActorColumns);
+            if (String(errorWithActorColumns?.message || errorWithActorColumns).includes('no such table: cbt_admin_logs')) {
+                return new Response(JSON.stringify({
+                    success: true,
+                    logs: []
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
         }
 
         return new Response(JSON.stringify({

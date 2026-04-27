@@ -6,32 +6,76 @@ export async function onRequestGet(context) {
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
     try {
-        let query = `
-            SELECT
-                ce.*,
-                COALESCE(c.name, ce.course_id) AS course_name,
-                s.name AS subject_name,
-                COUNT(ceq.question_id) AS question_count
-            FROM cbt_exams ce
-            LEFT JOIN courses c ON ce.course_id = c.id
-            LEFT JOIN subjects s ON ce.subject_id = s.id
-            LEFT JOIN cbt_exam_questions ceq ON ce.id = ceq.cbt_exam_id
-            WHERE 1=1
-        `;
         const params = [];
+        let results = [];
+        try {
+            let query = `
+                SELECT
+                    ce.*,
+                    COALESCE(c.name, ce.course_id) AS course_name,
+                    s.name AS subject_name,
+                    COUNT(ceq.question_id) AS question_count
+                FROM cbt_exams ce
+                LEFT JOIN courses c ON ce.course_id = c.id
+                LEFT JOIN subjects s ON ce.subject_id = s.id
+                LEFT JOIN cbt_exam_questions ceq ON ce.id = ceq.cbt_exam_id
+                WHERE 1=1
+            `;
 
-        if (!includeInactive) {
-            query += ` AND ce.is_active = 1`;
+            if (!includeInactive) {
+                query += ` AND ce.is_active = 1`;
+            }
+
+            if (courseName) {
+                query += ` AND (c.name = ? OR ce.course_id = ?)`;
+                params.push(courseName, courseName);
+            }
+
+            query += ` GROUP BY ce.id ORDER BY ce.created_at DESC`;
+            const queryResult = await env.DB.prepare(query).bind(...params).all();
+            results = queryResult.results || [];
+        } catch (primaryError) {
+            // Fallback for partially migrated schema (e.g., missing is_active/joins).
+            try {
+                let fallbackQuery = `
+                    SELECT
+                        ce.id,
+                        ce.title,
+                        ce.course_id,
+                        ce.subject_id,
+                        ce.topic,
+                        ce.round,
+                        ce.description,
+                        ce.time_limit,
+                        ce.pass_score,
+                        ce.created_at,
+                        COALESCE(c.name, ce.course_id) AS course_name,
+                        s.name AS subject_name
+                    FROM cbt_exams ce
+                    LEFT JOIN courses c ON ce.course_id = c.id
+                    LEFT JOIN subjects s ON ce.subject_id = s.id
+                    WHERE 1=1
+                `;
+                const fallbackParams = [];
+                if (courseName) {
+                    fallbackQuery += ` AND (c.name = ? OR ce.course_id = ?)`;
+                    fallbackParams.push(courseName, courseName);
+                }
+                fallbackQuery += ` ORDER BY ce.created_at DESC`;
+                const fallbackResult = await env.DB.prepare(fallbackQuery).bind(...fallbackParams).all();
+                results = (fallbackResult.results || []).map(r => ({ ...r, question_count: 0, is_active: 1 }));
+                console.warn('cbt exams list fallback query used:', primaryError?.message || primaryError);
+            } catch (fallbackError) {
+                if (String(fallbackError?.message || fallbackError).includes('no such table: cbt_exams')) {
+                    // Production-safe behavior before CBT table migration.
+                    return new Response(JSON.stringify({ success: true, exams: [] }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                throw fallbackError;
+            }
         }
-
-        if (courseName) {
-            query += ` AND (c.name = ? OR ce.course_id = ?)`;
-            params.push(courseName, courseName);
-        }
-
-        query += ` GROUP BY ce.id ORDER BY ce.created_at DESC`;
-
-        const { results } = await env.DB.prepare(query).bind(...params).all();
 
         return new Response(JSON.stringify({
             success: true,
@@ -47,7 +91,7 @@ export async function onRequestGet(context) {
                 description: e.description,
                 timeLimit: e.time_limit,
                 passScore: e.pass_score,
-                isActive: Number(e.is_active) === 1,
+                isActive: e.is_active === undefined ? true : Number(e.is_active) === 1,
                 questionCount: e.question_count || 0
             }))
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
