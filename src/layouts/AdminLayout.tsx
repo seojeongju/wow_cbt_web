@@ -46,6 +46,12 @@ export const AdminLayout = () => {
             desc: '문제 선택하여 출제'
         },
         {
+            path: '/admin/cbt-exams',
+            icon: FileText,
+            label: 'CBT 필기시험 관리',
+            desc: 'CBT 시험 생성/운영'
+        },
+        {
             path: '/admin/users',
             icon: Users,
             label: '수강생 관리',

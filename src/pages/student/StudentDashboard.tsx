@@ -660,11 +660,11 @@ export const StudentDashboard = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {/* 실전 모의고사 - 강조된 메인 카드 */}
                             <ActionCard
-                                title="실전 모의고사"
-                                desc="실제 시험과 동일한 환경에서 테스트해보세요."
+                                title="CBT 필기시험"
+                                desc="독립 운영되는 CBT 실전 환경에서 응시하세요."
                                 icon={<Play size={24} color="#6366f1" />}
                                 color="#e0e7ff"
-                                onClick={() => navigate(`/student/exam?course=${encodeURIComponent(selectedCourse)}`)}
+                                onClick={() => navigate('/student/cbt/guide')}
                                 isPrimary={true}
                             />
 

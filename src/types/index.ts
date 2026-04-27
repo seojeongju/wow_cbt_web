@@ -112,3 +112,42 @@ export interface Inquiry {
     answeredAt?: string;
     userEmail?: string;
 }
+
+export interface CbtExam {
+    id: string;
+    title: string;
+    courseId?: string | null;
+    courseName?: string | null;
+    subjectId?: string | null;
+    subjectName?: string | null;
+    topic?: string | null;
+    round?: string | null;
+    description?: string | null;
+    timeLimit: number; // minutes
+    passScore: number;
+    questionCount: number;
+}
+
+export interface CbtExamQuestion extends Question {}
+
+export interface CbtAttempt {
+    id: string;
+    examId: string;
+    userId: string;
+    startedAt: string;
+    endAt: string;
+    submittedAt?: string | null;
+    status: 'in_progress' | 'submitted' | 'timeout';
+    answers: { [key: string]: number | string };
+}
+
+export interface CbtResult {
+    id: string;
+    examId: string;
+    examTitle: string;
+    courseName?: string;
+    score: number;
+    totalQuestions: number;
+    passed: boolean;
+    submittedAt: string;
+}

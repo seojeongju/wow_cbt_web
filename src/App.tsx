@@ -15,6 +15,7 @@ import { ExamPrintPage } from './pages/admin/ExamPrintPage';
 import { AnalyticsPage } from './pages/admin/AnalyticsPage';
 import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
 import { AdminSupportPage } from './pages/admin/AdminSupportPage';
+import { CbtExamManagement } from './pages/admin/CbtExamManagement';
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -26,6 +27,10 @@ import { WrongAnswerNote } from './pages/student/WrongAnswerNote';
 import { PracticeMode } from './pages/practice/PracticeMode';
 import { StudentAnalyticsPage } from './pages/student/StudentAnalyticsPage';
 import { StudentProfilePage } from './pages/student/StudentProfilePage';
+import { CbtGuidePage } from './pages/student/CbtGuidePage';
+import { CbtExamSelectPage } from './pages/student/CbtExamSelectPage';
+import { CbtHistoryPage } from './pages/student/CbtHistoryPage';
+import { CbtExamPlayer } from './pages/exam/CbtExamPlayer';
 
 // Layout & Auth
 import { AdminLayout } from './layouts/AdminLayout';
@@ -49,6 +54,7 @@ function App() {
             <Route path="/admin/questions" element={<QuestionManagement />} />
             <Route path="/admin/exam/:examId/print" element={<ExamPrintPage />} />
             <Route path="/admin/mock-exam" element={<MockExamGenerator />} />
+            <Route path="/admin/cbt-exams" element={<CbtExamManagement />} />
             <Route path="/admin/analytics" element={<AnalyticsPage />} />
             <Route path="/admin/settings" element={<SystemSettingsPage />} />
             <Route path="/admin/support" element={<AdminSupportPage />} />
@@ -65,6 +71,10 @@ function App() {
           <Route path="/student/review" element={<WrongAnswerNote />} />
           <Route path="/student/analytics" element={<StudentAnalyticsPage />} />
           <Route path="/student/profile" element={<StudentProfilePage />} />
+          <Route path="/student/cbt/guide" element={<CbtGuidePage />} />
+          <Route path="/student/cbt/exams" element={<CbtExamSelectPage />} />
+          <Route path="/student/cbt/history" element={<CbtHistoryPage />} />
+          <Route path="/student/cbt/exam/:examId" element={<CbtExamPlayer />} />
           <Route path="/exam/:examId" element={<ExamPlayer />} />
         </Route>
 
