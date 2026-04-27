@@ -21,6 +21,14 @@ type CbtExam = {
 };
 
 type CbtExamDetail = CbtExam & { questions: Question[] };
+type CbtAdminLog = {
+    id: string;
+    action: string;
+    cbt_exam_id?: string | null;
+    exam_title?: string | null;
+    note?: string | null;
+    created_at: string;
+};
 
 export const CbtExamManagement = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +36,7 @@ export const CbtExamManagement = () => {
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [pool, setPool] = useState<Question[]>([]);
     const [exams, setExams] = useState<CbtExam[]>([]);
+    const [logs, setLogs] = useState<CbtAdminLog[]>([]);
     const [editingExamId, setEditingExamId] = useState<string | null>(null);
     const [editingExamDetail, setEditingExamDetail] = useState<CbtExamDetail | null>(null);
     const [savingEdit, setSavingEdit] = useState(false);
@@ -74,6 +83,12 @@ export const CbtExamManagement = () => {
         setExams(data.exams || []);
     };
 
+    const loadLogs = async () => {
+        const res = await fetch('/api/cbt/admin/logs?limit=80');
+        const data = await res.json();
+        setLogs(data.logs || []);
+    };
+
     const loadPool = async (selectedCourseId: string, selectedSubjectId: string) => {
         if (!selectedCourseId) {
             setPool([]);
@@ -94,6 +109,7 @@ export const CbtExamManagement = () => {
             const courseList = await CourseService.getCourses();
             setCourses(courseList);
             await loadExams();
+            await loadLogs();
             if (initialEditExamId) {
                 await beginEdit(initialEditExamId);
             }
@@ -170,6 +186,7 @@ export const CbtExamManagement = () => {
         setRound('');
         setSelectedIds(new Set());
         await loadExams();
+        await loadLogs();
     };
 
     const beginEdit = async (examId: string) => {
@@ -285,6 +302,7 @@ export const CbtExamManagement = () => {
             return;
         }
         await loadExams();
+        await loadLogs();
     };
 
     const copyExam = async (exam: CbtExam) => {
@@ -362,6 +380,26 @@ export const CbtExamManagement = () => {
                 </div>
 
                 <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={createCbtExam}>CBT 시험 생성</button>
+            </section>
+
+            <section className="glass-card" style={{ gridColumn: '1 / -1', background: 'white', padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>CBT 관리자 작업 로그</h2>
+                    <button className="btn btn-secondary" onClick={loadLogs}>새로고침</button>
+                </div>
+                <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.75rem' }}>
+                    {logs.length === 0 ? (
+                        <div style={{ padding: '1rem', color: '#64748b' }}>작업 로그가 없습니다.</div>
+                    ) : logs.map(log => (
+                        <div key={log.id} style={{ padding: '0.7rem 0.8rem', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '180px 140px 1fr', gap: '0.6rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</div>
+                            <div style={{ fontWeight: 700, color: '#334155' }}>{log.action}</div>
+                            <div style={{ fontSize: '0.88rem', color: '#475569' }}>
+                                {(log.exam_title || log.cbt_exam_id || 'N/A')} {log.note ? `· ${log.note}` : ''}
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </section>
 
             <section className="glass-card" style={{ background: 'white', padding: '1.25rem' }}>

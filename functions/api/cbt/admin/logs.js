@@ -1,0 +1,29 @@
+// GET /api/cbt/admin/logs?limit=100
+export async function onRequestGet(context) {
+    const { request, env } = context;
+    const url = new URL(request.url);
+    const limit = Math.min(Number(url.searchParams.get('limit') || 100), 300);
+
+    try {
+        const { results } = await env.DB.prepare(`
+            SELECT
+                l.*,
+                e.title AS exam_title
+            FROM cbt_admin_logs l
+            LEFT JOIN cbt_exams e ON e.id = l.cbt_exam_id
+            ORDER BY l.created_at DESC
+            LIMIT ?
+        `).bind(limit).all();
+
+        return new Response(JSON.stringify({
+            success: true,
+            logs: results || []
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } catch (error) {
+        console.error('cbt admin logs list error', error);
+        return new Response(JSON.stringify({ success: false, message: '관리자 로그 조회 실패' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}

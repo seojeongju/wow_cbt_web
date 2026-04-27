@@ -16,14 +16,14 @@ export const CbtService = {
         return data.exam || null;
     },
 
-    startAttempt: async (examId: string): Promise<{ success: boolean; attempt?: CbtAttempt; message?: string }> => {
+    startAttempt: async (examId: string, forceNew: boolean = false): Promise<{ success: boolean; attempt?: CbtAttempt; message?: string; resumed?: boolean }> => {
         const currentUser = AuthService.getCurrentUser();
         if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
 
         const response = await fetch('/api/cbt/attempts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ examId, userId: currentUser.id })
+            body: JSON.stringify({ examId, userId: currentUser.id, forceNew })
         });
 
         return await response.json();
@@ -34,6 +34,16 @@ export const CbtService = {
         if (!response.ok) return null;
         const data = await response.json();
         return data.attempt || null;
+    },
+
+    getInProgressAttempt: async (examId: string): Promise<CbtAttempt | null> => {
+        const currentUser = AuthService.getCurrentUser();
+        if (!currentUser) return null;
+        const response = await fetch(`/api/cbt/attempts?userId=${currentUser.id}&examId=${examId}&status=in_progress`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const attempts = data.attempts || [];
+        return attempts.length > 0 ? attempts[0] : null;
     },
 
     saveAnswers: async (attemptId: string, answers: { [key: string]: number | string }) => {

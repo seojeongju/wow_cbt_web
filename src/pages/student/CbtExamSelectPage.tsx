@@ -8,12 +8,24 @@ export const CbtExamSelectPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [exams, setExams] = useState<CbtExam[]>([]);
+    const [inProgressMap, setInProgressMap] = useState<{ [examId: string]: string }>({});
 
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await CbtService.getExamList();
                 setExams(data);
+                const entries = await Promise.all(
+                    data.map(async exam => {
+                        const inProgress = await CbtService.getInProgressAttempt(exam.id);
+                        return [exam.id, inProgress?.id || ''] as const;
+                    })
+                );
+                const next: { [examId: string]: string } = {};
+                entries.forEach(([examId, attemptId]) => {
+                    if (attemptId) next[examId] = attemptId;
+                });
+                setInProgressMap(next);
             } finally {
                 setLoading(false);
             }
@@ -22,6 +34,10 @@ export const CbtExamSelectPage = () => {
     }, []);
 
     const handleStart = async (examId: string) => {
+        if (inProgressMap[examId]) {
+            navigate(`/student/cbt/exam/${examId}?attemptId=${inProgressMap[examId]}`);
+            return;
+        }
         const res = await CbtService.startAttempt(examId);
         if (!res.success || !res.attempt) {
             alert(res.message || '응시 시작에 실패했습니다.');
@@ -51,9 +67,26 @@ export const CbtExamSelectPage = () => {
                             <div style={{ fontSize: '0.9rem', color: 'var(--slate-500)', marginBottom: '1rem' }}>
                                 {exam.timeLimit}분 · {exam.questionCount}문항 · 합격기준 {exam.passScore}점
                             </div>
-                            <button className="btn btn-primary" onClick={() => handleStart(exam.id)}>
-                                응시 시작
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button className="btn btn-primary" onClick={() => handleStart(exam.id)}>
+                                    {inProgressMap[exam.id] ? '이어풀기' : '응시 시작'}
+                                </button>
+                                {inProgressMap[exam.id] && (
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={async () => {
+                                            const res = await CbtService.startAttempt(exam.id, true);
+                                            if (!res.success || !res.attempt) {
+                                                alert(res.message || '재응시 시작 실패');
+                                                return;
+                                            }
+                                            navigate(`/student/cbt/exam/${exam.id}?attemptId=${res.attempt.id}`);
+                                        }}
+                                    >
+                                        새로 시작
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
